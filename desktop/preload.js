@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('phoneix', {
   state: () => ipcRenderer.invoke('state'),
   pair: () => ipcRenderer.invoke('pair'),
@@ -6,6 +6,20 @@ contextBridge.exposeInMainWorld('phoneix', {
   unpair: () => ipcRenderer.send('unpair'),
   test: () => ipcRenderer.invoke('test'),
   autostart: (on) => ipcRenderer.send('autostart', on),
+  pickFiles: () => ipcRenderer.invoke('files:pick'),
+  sendFiles: (paths) => ipcRenderer.invoke('files:send', paths),
+  pathOf: (file) => webUtils.getPathForFile(file),
+  replySend: (id, text) => ipcRenderer.invoke('reply:send', id, text),
+  mirrorStart: () => ipcRenderer.invoke('mirror:start'),
+  mirrorPair: (addr, code) => ipcRenderer.invoke('mirror:pair', addr, code),
+  mirrorConnect: (addr) => ipcRenderer.invoke('mirror:connect', addr),
+  mirrorEasy: () => ipcRenderer.invoke('mirror:easy'),
+  mirrorStop: () => ipcRenderer.send('mirror:stop'),
+  mirrorOpts: (o) => ipcRenderer.send('mirror:opts', o),
+  ring: (on) => ipcRenderer.send('ring', on),
+  clipSync: (on) => ipcRenderer.send('clipsync', on),
+  openFolder: () => ipcRenderer.send('files:open'),
+  chooseFolder: () => ipcRenderer.invoke('files:choose'),
   onState: (cb) => ipcRenderer.on('state', (_e, s) => cb(s)),
   onPaired: (cb) => ipcRenderer.on('paired', () => cb())
 });

@@ -26,6 +26,15 @@ class Store(ctx: Context) {
     /** Eşleştirmeyi siler; uygulama seçimi ve gizlilik ayarı kalır. */
     fun clear() = p.edit().remove("key").remove("pc").remove("hosts").remove("port").remove("last").apply()
 
+    var clipSync: Boolean
+        get() = p.getBoolean("clip", true)
+        set(v) = p.edit().putBoolean("clip", v).apply()
+
+    /** Telefon panosunda en son görülen metnin özeti: yalnızca gerçekten değişen pano bilgisayara gider. */
+    var clipSeen: Int
+        get() = p.getInt("clipSeen", Int.MIN_VALUE)
+        set(v) = p.edit().putInt("clipSeen", v).apply()
+
     val apps: Set<String> get() = p.getStringSet("apps", emptySet())!!.toSet()
     fun setApps(s: Set<String>) = p.edit().putStringSet("apps", HashSet(s)).apply()
     var hideText: Boolean

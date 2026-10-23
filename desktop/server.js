@@ -6,7 +6,7 @@
 // Anahtar yanlış, zaman 60 sn dışında veya nonce tekrar ise yanıt 404 (anahtarı bilmeyen bir şey öğrenemez).
 const http = require('http'), crypto = require('crypto'), os = require('os');
 const AAD = Buffer.from('phoneix1'), PORT = 47810, WINDOW = 60000;
-let ctx, server = null, port = 0, pending = null, seen = new Map(), hits = [], lastSeen = 0;
+let ctx, server = null, port = 0, pending = null, seen = new Map(), hits = [], lastSeen = 0, lastIp = '';
 
 const key = () => { const k = ctx.getKey(); return k ? Buffer.from(k, 'base64') : null; };
 
@@ -29,22 +29,28 @@ const fresh = (nonce, t) => { // tekrar saldırısı: eski zaman damgası veya g
   if (typeof t !== 'number' || Math.abs(n - t) > WINDOW || seen.has(nonce)) return false;
   seen.set(nonce, n); return true;
 };
-const limited = () => { const n = Date.now(); while (hits.length && n - hits[0] > 5000) hits.shift(); if (hits.length >= 40) return true; hits.push(n); return false; };
+const limited = () => { const n = Date.now(); while (hits.length && n - hits[0] > 5000) hits.shift(); if (hits.length >= 200) return true; hits.push(n); return false; };
 
 function handle(req, res) {
   const miss = () => { res.statusCode = 404; res.end(); };
   if (req.method !== 'POST' || req.url !== '/phoneix/v1' || limited()) return miss();
   let body = '', size = 0;
-  req.on('data', (d) => { size += d.length; if (size > 65536) { miss(); req.destroy(); } else body += d; });
-  req.on('end', () => {
+  req.on('data', (d) => { size += d.length; if (size > 4 * 1024 * 1024) { miss(); req.destroy(); } else body += d; });
+  let gone = false; res.on('close', () => { gone = true; });
+  req.on('end', async () => {
     if (res.writableEnded) return;
     let k = key(), r = open(k, body), fromPending = false;
     if (!r && pending) { r = open(pending, body); if (r) { k = pending; fromPending = true; } }
     if (!r || !fresh(r.nonce, r.msg.t)) return miss();
     if (fromPending) { ctx.setKey(pending.toString('base64')); pending = null; } // ilk geçerli mesaj: eşleştirme tamam
-    lastSeen = Date.now();
+    lastSeen = Date.now(); lastIp = String(req.socket.remoteAddress || '').replace(/^::ffff:/, '');
     let out = { ok: true, name: os.hostname() };
-    try { out = { ...out, ...(ctx.onMessage(r.msg, fromPending) || {}) }; } catch { out.ok = false; }
+    try {
+      const extra = await ctx.onMessage(r.msg, fromPending, () => gone);
+      if (extra === null) return res.end(); // istemci uzun beklemeden vazgeçti
+      out = { ...out, ...(extra || {}) };
+    } catch { out.ok = false; }
+    if (gone) return;
     res.statusCode = 200; res.setHeader('Content-Type', 'text/plain'); res.end(seal(k, { t: Date.now(), ...out }));
   });
 }
@@ -86,7 +92,7 @@ function pair() {
   });
 }
 function cancelPair() { pending = null; sync(); }
-const status = () => ({ listening: !!server, port, pairing: !!pending, lastSeen, ips: ips() });
+const status = () => ({ listening: !!server, port, pairing: !!pending, lastSeen, lastIp, ips: ips() });
 function destroy() { pending = null; if (server) { try { server.close(); } catch {} server = null; port = 0; } }
 
 module.exports = {

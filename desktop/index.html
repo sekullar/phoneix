@@ -57,6 +57,17 @@
   label.sw input:checked::after { transform: translateX(16px); }
   .toast { position: fixed; left: 50%; bottom: 18px; transform: translate(-50%, 20px); opacity: 0; background: #2b2b38; border: 1px solid var(--line); padding: 8px 14px; border-radius: 10px; transition: .25s; pointer-events: none; }
   .toast.on { opacity: 1; transform: translate(-50%, 0); }
+  .drop { border: 1.5px dashed #3a3a48; border-radius: 12px; padding: 14px; text-align: center; transition: .15s; }
+  .drop.over { border-color: var(--a1); background: rgba(255,94,150,.07); }
+  .rep { padding: 9px 0; border-top: 1px solid var(--line); } .rep:first-child { border-top: 0; padding-top: 0; }
+  .rep .who { font-weight: 600; font-size: 13px; color: var(--a1); } .rep .msg { color: var(--dim); font-size: 13px; margin: 2px 0 6px; overflow-wrap: anywhere; }
+  .rep .row2 { display: flex; gap: 6px; } .rep input { flex: 1; min-width: 0; background: #1d1d27; color: var(--text); border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; font: inherit; outline: none; }
+  .rep input:focus { border-color: var(--a2); }
+  details.wl { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; } details.wl summary { cursor: pointer; color: var(--dim); font-size: 13px; }
+  details.wl ol { margin: 8px 0; } details.wl input { background: #1d1d27; color: var(--text); border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; font: inherit; outline: none; min-width: 0; } details.wl input:focus { border-color: var(--a2); }
+  .frow { display: flex; gap: 6px; margin: 6px 0; } .frow input { flex: 1; }
+  .bar { height: 4px; border-radius: 2px; background: #2c2c38; margin-top: 5px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--a1), var(--a2)); width: 0; transition: width .25s; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -88,10 +99,11 @@
     <div id="paired" hidden>
       <div class="row">
         <span class="dot" id="pdot"></span>
-        <div class="grow"><div class="big ell" id="pname"></div><div class="dim" id="pseen"></div></div>
+        <div class="grow"><div class="big ell" id="pname"></div><div class="dim" id="pseen"></div><div class="dim" id="batt"></div></div>
       </div>
       <div class="btns">
         <button class="primary" id="test">Test bildirimi</button>
+        <button id="ring">Telefonumu çaldır</button>
         <button id="repair">Yeniden eşleştir</button>
         <button class="danger" id="unpair">Kaldır</button>
       </div>
@@ -106,6 +118,43 @@
     </div>
   </section>
 
+  <section class="card" id="mirCard">
+    <h2>Ekran yansıtma</h2>
+    <div class="row"><span class="dot" id="mdot"></span><div class="grow"><div class="big" id="mtitle" style="font-size:15px"></div><div class="dim" id="msub"></div></div></div>
+    <div class="btns"><button class="primary" id="mstart">Ekranı yansıt</button><button id="mstop" hidden>Durdur</button></div>
+    <details class="wl" id="wl">
+      <summary>Kablosuz (Wi‑Fi) ile yansıtma kurulumu</summary>
+      <ol>
+        <li>Telefon ve bilgisayar aynı Wi‑Fi’de olsun.</li>
+        <li>Telefonda <b>Ayarlar → Geliştirici seçenekleri → Kablosuz hata ayıklama</b>’yı aç.</li>
+        <li>Orada <b>“Eşleştirme koduyla cihazı eşleştir”</b>e bas: bir IP:port ve 6 haneli kod görünür (pencereyi kapatma).</li>
+        <li>Aşağıya yaz, <b>Eşleştir</b>’e bas. Bu işlem bir kez yapılır.</li>
+        <li>Sonra <b>Ekranı yansıt</b> kablosuz bağlanır (Kablosuz hata ayıklama açıkken).</li>
+      </ol>
+      <div class="frow"><input id="wpa" placeholder="IP:port (ör. 192.168.1.20:41234)"><input id="wpc" placeholder="6 haneli kod" maxlength="6" style="max-width:120px"></div>
+      <div class="btns" style="margin-top:6px"><button id="wpair">Eşleştir</button></div>
+      <div class="dim" style="margin-top:10px">Eşleşti ama bağlanmadıysa: Kablosuz hata ayıklamanın <b>ana ekranındaki</b> IP:port’u yaz.</div>
+      <div class="frow"><input id="wca" placeholder="IP:port (bağlantı)"><button id="wconn">Bağlan</button></div>
+    </details>
+    <div id="easyBox" class="dim" style="margin-top:12px"><span id="easyTxt"></span> <button id="easyBtn" style="margin-top:6px">Kolay kablosuz modu kur</button></div>
+    <label class="sw" style="margin-top:12px"><div>Bağlantı kopunca otomatik yeniden bağlan<div class="dim">Telefon uyuyunca ya da Wi‑Fi kopunca ekran kendiliğinden geri gelir.</div></div><input type="checkbox" id="mrec"></label>
+    <label class="sw" style="margin-top:12px"><div>Sesi bilgisayara al</div><input type="checkbox" id="maudio"></label>
+    <label class="sw" style="margin-top:10px"><div>Telefonun ekranı kapalı kalsın</div><input type="checkbox" id="moff"></label>
+  </section>
+
+  <section class="card" id="filesCard" hidden>
+    <h2>Dosyalar</h2>
+    <div class="drop" id="drop"><div>Buraya dosya bırak</div><div class="btns" style="justify-content:center;margin-top:8px"><button class="primary" id="pick">Telefona dosya gönder</button></div></div>
+    <ul id="xfers" style="margin-top:12px"></ul>
+    <div class="btns"><button id="openDir">Gelen klasörü aç</button><button id="chDir">Klasörü değiştir</button></div>
+    <div class="dim ell" id="saveDir" style="margin-top:8px"></div>
+  </section>
+
+  <section class="card" id="repCard" hidden>
+    <h2>Yanıtlanabilir mesajlar</h2>
+    <div id="reps"></div>
+  </section>
+
   <section class="card">
     <h2>Etkinlik</h2>
     <ul id="acts"></ul>
@@ -114,6 +163,7 @@
 
   <section class="card">
     <label class="sw"><div><div>Windows açılınca başlat</div><div class="dim">Tepsiye küçülür, pencere açılmaz.</div></div><input type="checkbox" id="auto"></label>
+    <label class="sw" style="margin-top:14px"><div><div>Panoyu telefonla eşitle</div><div class="dim">Burada kopyaladığın telefonda da yapışır. Telefondan kopyalamak için Hızlı Ayarlar'daki "Panoyu gönder" karosu.</div></div><input type="checkbox" id="clip"></label>
     <div class="dim" id="net" style="margin-top:12px"></div>
   </section>
 </main>
@@ -122,7 +172,7 @@
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
-  let st = null, showQr = false;
+  let st = null, showQr = false, repSig = '';
   const toast = (t) => { const e = $('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('on'), 2200); };
   const ago = (t) => {
     if (!t) return 'henüz mesaj yok';
@@ -145,8 +195,49 @@
     $('ddot').className = 'dot ' + (st.dynbar ? 'ok' : 'warn');
     $('dtitle').textContent = st.dynbar ? 'Dynamic Bar bulundu' : 'Dynamic Bar çalışmıyor';
     $('dsub').textContent = st.dynbar ? 'Telefon bildirimleri adada görünür.' : 'Bildirimler yerine Windows bildirimi gösterilir.';
-    $('auto').checked = !!st.autostart;
+    $('auto').checked = !!st.autostart; $('clip').checked = st.clipSync !== false;
+    const p = st.phone; $('batt').textContent = p && Date.now() - p.t < 120000 ? '🔋 %' + p.battery + (p.charging ? ' · şarjda' : '') : '';
+    $('ring').textContent = st.ringing ? 'Çalmayı durdur' : 'Telefonumu çaldır';
     $('net').textContent = st.listening ? 'Dinleniyor: ' + (st.ips.join(', ') || 'ağ adresi yok') + ' · bağlantı noktası ' + st.port : 'Eşleşme yokken dinlenmez.';
+    const mr = st.mirror || {}, md = (mr.devices || [])[0];
+    $('mdot').className = 'dot' + (mr.running ? ' ok' : md ? ' ok' : ' warn');
+    $('mtitle').textContent = mr.running ? 'Yansıtılıyor' : !mr.installed ? 'scrcpy kurulu değil' : md ? 'Telefon hazır' : 'Telefon USB’de görünmüyor';
+    $('msub').textContent = mr.error || (!mr.installed ? 'Android\\scrcpy klasörüne scrcpy açılmalı (github.com/Genymobile/scrcpy).' : md ? (md.model || 'Telefon') + ' · ' + (md.wifi ? 'kablosuz' : 'USB') : 'USB ile bağla (USB hata ayıklama açık). Kablosuz hata ayıklama eşleşmişse Phoneix onu da dener.');
+    if (!$('wpa').value && !$('wpa').matches(':focus') && st.phoneIp) $('wpa').placeholder = st.phoneIp + ':port';
+    $('easyTxt').textContent = mr.easy ? '✓ Kolay kablosuz mod hazır: telefon kablosuz hata ayıklamayı kendisi açar, port girmen gerekmez.' : 'Kolay kablosuz mod kurulu değil: bir kez USB takılıyken kurulursa port girmeden, otomatik bağlanır.';
+    $('easyBtn').hidden = !!mr.easy; $('mrec').checked = st.mirrorReconnect !== false;
+    $('msub').textContent = mr.reconnecting ? 'Bağlantı koptu, yeniden bağlanılıyor…' : $('msub').textContent;
+    $('mstart').hidden = !!mr.running; $('mstart').disabled = !mr.installed; $('mstop').hidden = !mr.running;
+    $('maudio').checked = st.mirrorAudio !== false; $('moff').checked = !!st.mirrorOff;
+    $('filesCard').hidden = !st.paired;
+    $('saveDir').textContent = 'Gelenler: ' + (st.saveDir || '');
+    const xs = $('xfers'); xs.textContent = '';
+    (st.transfers || []).forEach((x) => {
+      const li = document.createElement('li'); li.className = 'act';
+      const t = document.createElement('time'); t.textContent = x.dir === 'in' ? '↓ telefondan' : '↑ telefona'; t.style.width = '84px';
+      const s = document.createElement('span'); s.style.flex = '1';
+      const pct = x.size ? Math.min(100, Math.round((x.done / x.size) * 100)) : x.state === 'done' ? 100 : 0;
+      s.textContent = x.name + ' · ' + (x.state === 'done' ? 'tamam' : x.state === 'error' ? 'hata' : x.state === 'queued' ? 'telefon bekleniyor' : '%' + pct);
+      li.append(t, s);
+      if (x.state === 'active') { const b = document.createElement('div'); b.className = 'bar'; const i = document.createElement('i'); i.style.width = pct + '%'; b.append(i); s.append(b); }
+      xs.append(li);
+    });
+    const reps = st.replies || [], sig = reps.map((r) => r.id).join(',');
+    $('repCard').hidden = !st.paired || !reps.length;
+    if (sig !== repSig) { // liste yalnızca mesajlar değişince yeniden çizilir (yazılan metin silinmesin)
+      repSig = sig; const box = $('reps'); box.textContent = '';
+      reps.forEach((r) => {
+        const d = document.createElement('div'); d.className = 'rep';
+        const w = document.createElement('div'); w.className = 'who'; w.textContent = (r.app ? r.app + ' · ' : '') + r.title;
+        const m = document.createElement('div'); m.className = 'msg'; m.textContent = r.text;
+        const row = document.createElement('div'); row.className = 'row2';
+        const inp = document.createElement('input'); inp.placeholder = 'Yanıtın…'; inp.maxLength = 2000;
+        const b = document.createElement('button'); b.textContent = 'Gönder';
+        const go = async () => { const t = inp.value.trim(); if (!t) return; if (await phoneix.replySend(r.id, t)) { inp.value = ''; toast('Yanıt gönderiliyor'); } else toast('Bu mesaj artık yanıtlanamıyor'); };
+        b.onclick = go; inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+        row.append(inp, b); d.append(w, m, row); box.append(d);
+      });
+    }
     const ul = $('acts'); ul.textContent = '';
     st.activity.forEach((a) => {
       const li = document.createElement('li'); li.className = 'act';
@@ -172,6 +263,27 @@
   $('cancel').onclick = async () => { showQr = false; phoneix.cancel(); st = await phoneix.state(); render(); };
   $('unpair').onclick = () => { phoneix.unpair(); toast('Eşleştirme kaldırıldı'); };
   $('test').onclick = async () => { const via = await phoneix.test(); toast(via === 'bar' ? 'Dynamic Bar\'a gönderildi' : 'Windows bildirimi gösterildi'); };
+  const sent = (r) => toast(!r ? '' : r.ok ? (r.online ? r.files + ' dosya gönderiliyor' : 'Sıraya alındı: telefon bağlanınca iner') : r.error);
+  $('pick').onclick = async () => { const r = await phoneix.pickFiles(); if (r) sent(r); };
+  $('openDir').onclick = () => phoneix.openFolder();
+  $('chDir').onclick = () => phoneix.chooseFolder();
+  window.addEventListener('dragover', (e) => { e.preventDefault(); $('drop').classList.add('over'); });
+  window.addEventListener('dragleave', (e) => { if (!e.relatedTarget) $('drop').classList.remove('over'); });
+  window.addEventListener('drop', async (e) => {
+    e.preventDefault(); $('drop').classList.remove('over');
+    const paths = [...e.dataTransfer.files].map((f) => { try { return phoneix.pathOf(f); } catch { return ''; } }).filter(Boolean);
+    if (paths.length && st && st.paired) sent(await phoneix.sendFiles(paths));
+  });
+  $('ring').onclick = () => { phoneix.ring(!(st && st.ringing)); };
+  $('clip').onchange = (e) => phoneix.clipSync(e.target.checked);
+  $('mstart').onclick = async () => { $('mstart').disabled = true; const r = await phoneix.mirrorStart(); $('mstart').disabled = false; toast(r && r.ok ? 'Ekran açıldı' : (r && r.error) || 'Başlatılamadı'); };
+  $('wpair').onclick = async () => { $('wpair').disabled = true; const r = await phoneix.mirrorPair($('wpa').value, $('wpc').value); $('wpair').disabled = false; toast(r.ok ? r.text : r.error); if (r.ok) $('wpc').value = ''; };
+  $('wconn').onclick = async () => { const r = await phoneix.mirrorConnect($('wca').value); toast(r.ok ? 'Bağlandı' : r.error); };
+  $('easyBtn').onclick = async () => { $('easyBtn').disabled = true; const r = await phoneix.mirrorEasy(); $('easyBtn').disabled = false; toast(r.ok ? 'Kolay mod kuruldu' : r.error); };
+  $('mrec').onchange = (e) => phoneix.mirrorOpts({ reconnect: e.target.checked });
+  $('mstop').onclick = () => phoneix.mirrorStop();
+  $('maudio').onchange = (e) => phoneix.mirrorOpts({ audio: e.target.checked });
+  $('moff').onchange = (e) => phoneix.mirrorOpts({ screenOff: e.target.checked });
   $('auto').onchange = (e) => phoneix.autostart(e.target.checked);
   phoneix.onState((s) => { st = s; render(); });
   phoneix.onPaired(() => { showQr = false; toast('Telefon eşleşti 🎉'); });

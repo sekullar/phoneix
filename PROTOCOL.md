@@ -27,3 +27,29 @@ Anything else (wrong key, timestamp older than 60 s, repeated nonce, bad body, o
 
 ## Limits
 Body up to 64 KB, 40 requests per 5 s. The server only listens while a key exists or a pairing is waiting.
+
+## Files
+Chunks are 1 MB; request bodies up to 4 MB. All of it goes through the same encrypted `POST`.
+
+| type | direction | fields | reply |
+|---|---|---|---|
+| `put` | phone → PC | `id` (hex), `name`, `size`, `seq`, `last`, `data` (base64) | `ok`. Chunks must arrive in order; the file is saved to the PC's receive folder (default `Downloads\Phoneix`) |
+| `poll` | phone → PC | none | long poll (held up to 25 s): `files: [{id, name, size}]` waiting on the PC |
+| `get` | phone → PC | `id`, `seq` | `data` (base64), `last`, `size` |
+| `done` | phone → PC | `id` | `ok` |
+
+## Local API (Windows, for Dynamic Bar and scripts)
+The desktop app listens on `127.0.0.1:<random port>` and writes `~/.dynbar-ecosystem/phoneix.json`
+(`{app, port, token, pid, paired, phone}`). `POST /send {"paths":[...]}` and `GET /job/<id>` need `Authorization: Bearer <token>`.
+Dynamic Bar shows a "Telefon" parcel destination while this file points to a live process with a paired phone.
+
+## Reply, calls and commands
+The poll reply also carries `cmds` (short-lived, at most 30 s): `{type:"clip",text}`, `{type:"ring"}`, `{type:"stopring"}`, `{type:"reply",id,text}`, `{type:"call",action:"answer|reject|hangup|speaker"}`.
+
+| type | direction | fields |
+|---|---|---|
+| `clip` | phone → PC | `text` (PC clipboard) |
+| `notif` | phone → PC | now also `reply` (id) when the notification has a free-text reply action |
+| `replyres` | phone → PC | `id`, `ok`, `error` |
+| `call` | phone → PC | `state` (`ringing`, `active`, `ended`), `who`, `speaker` |
+| `poll` | phone → PC | also `battery`, `charging` |
