@@ -19,6 +19,7 @@ Plaintext is JSON with `t` (ms timestamp) and `type`:
 | type | fields | effect |
 |---|---|---|
 | `hello` | `name` | pairing confirmation, shows "Telefon eşleşti" |
+| `notif` | `app`, `title`, `text` | a notification from an app the user picked on the phone; shown on the bar |
 | `test` | `title`, `text` | shows a notification on the bar |
 
 The reply (200) is encrypted with the same key, so the phone also authenticates the PC.

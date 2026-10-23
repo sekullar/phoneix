@@ -61,6 +61,11 @@ function onMessage(m, first) {
   } else if (m.type === 'test') {
     note('test', 'Telefondan test: ' + String(m.text || '').slice(0, 60)); save();
     forward({ title: String(m.title || 'Phoneix').slice(0, 80), text: String(m.text || 'Telefondan test').slice(0, 200) });
+  } else if (m.type === 'notif') {
+    const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
+    const app = str(m.app, 40) || 'Telefon';
+    note('notif', app + (m.title && m.title !== app ? ': ' + str(m.title, 50) : ''));
+    forward({ title: str(m.title, 80) || app, text: str(m.text, 200), app });
   }
   push();
   return {};

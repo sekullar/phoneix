@@ -23,5 +23,12 @@ class Store(ctx: Context) {
         p.edit().putString("key", key).putString("pc", pc).putString("hosts", JSONArray(hosts).toString()).putInt("port", port).remove("last").apply()
     }
     fun remember(host: String) = p.edit().putString("last", host).apply()
-    fun clear() = p.edit().clear().apply()
+    /** Eşleştirmeyi siler; uygulama seçimi ve gizlilik ayarı kalır. */
+    fun clear() = p.edit().remove("key").remove("pc").remove("hosts").remove("port").remove("last").apply()
+
+    val apps: Set<String> get() = p.getStringSet("apps", emptySet())!!.toSet()
+    fun setApps(s: Set<String>) = p.edit().putStringSet("apps", HashSet(s)).apply()
+    var hideText: Boolean
+        get() = p.getBoolean("hide", false)
+        set(v) = p.edit().putBoolean("hide", v).apply()
 }

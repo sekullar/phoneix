@@ -7,12 +7,15 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.provider.Settings
 import android.util.Base64
 import android.util.TypedValue
 import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.Switch
+import androidx.core.app.NotificationManagerCompat
 import android.widget.TextView
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
@@ -25,6 +28,11 @@ class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var test: Button
     private lateinit var unpair: Button
+    private lateinit var access: Button
+    private lateinit var apps: Button
+    private lateinit var battery: Button
+    private var askedAccess = false
+    private var askedBattery = false
 
     private fun dp(v: Int) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), resources.displayMetrics).toInt()
     private fun deviceName() = Settings.Global.getString(contentResolver, "device_name") ?: Build.MODEL
@@ -51,6 +59,13 @@ class MainActivity : Activity() {
         btn("QR ile eşleştir") { scanQr() }
         test = btn("Test bildirimi gönder") { sendTest() }
         unpair = btn("Eşleştirmeyi kaldır") { store.clear(); refresh("Eşleştirme kaldırıldı") }
+        access = btn("Bildirim erişimi ver") { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+        battery = btn("Pil kısıtlamasını kaldır") { askBattery() }
+        apps = btn("Hangi uygulamalar?") { startActivity(Intent(this, AppsActivity::class.java)) }
+        root.addView(Switch(this).apply {
+            text = "Bildirim metnini gizle (yalnızca uygulama adı gider)"; setTextColor(Color.LTGRAY)
+            isChecked = store.hideText; setOnCheckedChangeListener { _, on -> store.hideText = on }
+        }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16) })
         setContentView(root)
         refresh()
         handle(intent)
@@ -67,7 +82,44 @@ class MainActivity : Activity() {
         else "Henüz eşleşmedi.\nBilgisayarda Phoneix uygulamasını aç ve \"Telefonu eşleştir\" ile kodu çıkar."
         test.isEnabled = paired
         unpair.isEnabled = paired
+        val granted = accessGranted()
+        val free = batteryFree()
+        battery.text = if (free) "Pil kısıtlaması yok ✓" else "Pil kısıtlamasını kaldır"
+        battery.isEnabled = !free
+        access.text = if (granted) "Bildirim erişimi açık ✓" else "Bildirim erişimi ver"
+        apps.isEnabled = paired
+        apps.text = "Hangi uygulamalar? (${store.apps.size} seçili)"
+        if (paired && msg == null) status.text = status.text.toString() + "\n" + (if (granted) "Bildirim aktarma: açık" else "Bildirim aktarma için erişim gerekli")
     }
+
+    private fun accessGranted() = packageName in NotificationManagerCompat.getEnabledListenerPackages(this)
+    private fun batteryFree() = (getSystemService(POWER_SERVICE) as PowerManager).isIgnoringBatteryOptimizations(packageName)
+
+    private fun askBattery() {
+        try { startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))) }
+        catch (e: Exception) { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
+    }
+
+    /** Eşleşmeden sonra eksik izinleri sırayla ister; her adım oturum başına bir kez sorulur, kullanıcı reddederse ısrar edilmez. */
+    private fun setupNext() {
+        if (!store.paired) return
+        if (!accessGranted() && !askedAccess) {
+            askedAccess = true
+            AlertDialog.Builder(this).setTitle("Bildirim erişimi")
+                .setMessage("Telefon bildirimlerini bilgisayara aktarmak için Phoneix'e bildirim erişimi vermelisin. Açılan listede Phoneix'i aç.\n\nAnahtar gri ise: Uygulama bilgisi → ⋮ → \"Kısıtlı ayarlara izin ver\", sonra tekrar dene.")
+                .setPositiveButton("Ayarları aç") { _, _ -> startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+                .setNeutralButton("Uygulama bilgisi") { _, _ -> startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) }
+                .setNegativeButton("Sonra", null).show()
+        } else if (accessGranted() && !batteryFree() && !askedBattery) {
+            askedBattery = true
+            AlertDialog.Builder(this).setTitle("Pil kısıtlaması")
+                .setMessage("Android, Phoneix'i arka planda kapatırsa bildirimler gelmez. Bir sonraki pencerede \"İzin ver\"e bas.")
+                .setPositiveButton("Devam") { _, _ -> askBattery() }
+                .setNegativeButton("Sonra", null).show()
+        }
+    }
+
+    override fun onResume() { super.onResume(); refresh(); setupNext() }
 
     private fun ui(f: () -> Unit) = runOnUiThread(f)
 
@@ -113,7 +165,7 @@ class MainActivity : Activity() {
                 if (r.ok) {
                     store.save(key, r.reply?.optString("name", name) ?: name, hosts, port)
                     r.host?.let { store.remember(it) }
-                    refresh()
+                    refresh(); setupNext()
                 } else refresh("Eşleşilemedi: ${r.error}\nTelefon ve bilgisayar aynı Wi-Fi'de mi? Windows güvenlik duvarı izin verdi mi?")
             }
         }
