@@ -2,6 +2,8 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('phoneix', {
   state: () => ipcRenderer.invoke('state'),
   pair: () => ipcRenderer.invoke('pair'),
+  apkInfo: () => ipcRenderer.invoke('apk:info'),
+  apkOpen: () => ipcRenderer.send('apk:open'),
   cancel: () => ipcRenderer.send('cancel'),
   unpair: () => ipcRenderer.send('unpair'),
   test: () => ipcRenderer.invoke('test'),

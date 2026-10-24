@@ -318,6 +318,13 @@ function startApi() {
   api.listen(0, '127.0.0.1', () => { apiPort = api.address().port; syncLink(); });
 }
 ipcMain.handle('pair', () => server.pair().catch(() => null));
+// Telefon uygulaması (APK) indirme adresi: en son Release'teki Phoneix.apk
+const APK_URL = 'https://github.com/sekullar/phoneix/releases/latest/download/Phoneix.apk';
+ipcMain.handle('apk:info', () => {
+  const qr = require('qrcode-generator')(0, 'M'); qr.addData(APK_URL); qr.make();
+  return { url: APK_URL, svg: qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true }) };
+});
+ipcMain.on('apk:open', () => shell.openExternal(APK_URL));
 ipcMain.on('cancel', () => { server.cancelPair(); push(); });
 ipcMain.on('unpair', () => { store.key = ''; store.name = ''; store.lastMsg = 0; save(); server.sync(); files.reset(); remote.clear(); phone = { battery: -1, charging: false, t: 0, low: false }; syncLink(); note('unpair', 'Eşleştirme kaldırıldı'); });
 ipcMain.handle('test', async () => {

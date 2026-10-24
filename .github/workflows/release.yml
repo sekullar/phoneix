@@ -27,8 +27,13 @@ jobs:
 
       - run: npx electron-builder --win nsis --publish never
 
+      - name: Attach the Android APK
+        shell: bash
+        run: cp "$(ls ../releases/Phoneix-*.apk | sort | tail -1)" dist/Phoneix.apk
+
       - uses: softprops/action-gh-release@v2
         with:
           files: |
             desktop/dist/*.exe
             desktop/dist/latest.yml
+            desktop/dist/Phoneix.apk
