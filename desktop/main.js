@@ -106,7 +106,7 @@ async function onMessage(m, first, gone) {
     const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
     const app = str(m.app, 40) || 'Telefon';
     note('notif', app + (m.title && m.title !== app ? ': ' + str(m.title, 50) : ''));
-    const n = { title: str(m.title, 80) || app, text: str(m.text, 200), app };
+    const n = { title: str(m.title, 80) || app, text: str(m.text, 200), app, mood: 'phone' }; // Dynamic Bar'da maskot telefona bakar (eski sürümler bu değeri yok sayar)
     const rid = typeof m.reply === 'string' && /^[0-9a-f]{6,32}$/.test(m.reply) ? m.reply : '';
     if (rid && apiPort) { // yanıtlanabilir: adada "Yanıtla" düğmesi çıkar
       replies.set(rid, { id: rid, app, title: n.title, text: n.text }); if (replies.size > 40) replies.delete(replies.keys().next().value);
