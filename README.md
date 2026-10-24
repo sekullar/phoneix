@@ -37,34 +37,35 @@ It also works with [Dynamic Bar](https://github.com/sekullar/dynamic-bar-for-win
 - Windows 10/11 and an Android 10+ phone on the same network (or a USB cable for mirroring)
 - [Node.js](https://nodejs.org) 18+ to run the desktop app from source
 - For mirroring: [scrcpy](https://github.com/Genymobile/scrcpy/releases) in `%USERPROFILE%\Android\scrcpy` (or `PHONEIX_SCRCPY`, or on `PATH`) and Android `platform-tools` (`adb`) in `%USERPROFILE%\Android\Sdk\platform-tools` (or `ANDROID_HOME`, or next to scrcpy)
-- To build the Android app: Android SDK (set `ANDROID_HOME`) and JDK 17
+- Only to build the APK yourself: Android SDK (set `ANDROID_HOME`) and JDK 17
 
-## Build and run
+## Install (no building needed)
 
-Desktop:
+1. **Phone:** download [`releases/Phoneix-0.1.0.apk`](releases/Phoneix-0.1.0.apk) on your phone and open it (Android will ask you to allow installing from your browser).
+2. **PC:** install [Node.js](https://nodejs.org), then run:
 
-```powershell
-cd desktop
-npm install
-npm start
-```
+   ```powershell
+   cd desktop
+   npm install
+   npm start
+   ```
 
-Android:
+3. Open Phoneix on both sides, scan the QR code shown by the desktop app, and confirm the PC name on the phone.
+4. Optional, lets Phoneix turn wireless debugging on by itself for mirroring (run once with the phone connected by USB): `adb shell pm grant app.phoneix android.permission.WRITE_SECURE_SETTINGS`
+
+The APK is signed with a debug key: fine for personal use, not a Play Store build.
+
+## Build the Android app yourself
 
 ```powershell
 cd android
 $env:ANDROID_HOME = "C:\Users\<you>\Android\Sdk"
-.\gradlew.bat assembleDebug
-adb install -r app\build\outputs\apk\debug\app-debug.apk
-# optional, lets Phoneix turn wireless debugging on by itself for mirroring:
-adb shell pm grant app.phoneix android.permission.WRITE_SECURE_SETTINGS
+.\gradlew.bat assembleRelease   # app\build\outputs\apk\release\app-release.apk
 ```
-
-Then open Phoneix on both sides, scan the QR code shown by the desktop app, and confirm the PC name on the phone.
 
 ## Known limitations
 
-- **CPU temperature** needs a sensor source Windows only gives to administrators. Without one the monitor shows "—" for CPU; GPU temperature (NVIDIA) works without it. If [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) is running as administrator, Phoneix reads CPU temperature from its WMI sensors (best effort).
+- **CPU temperature** needs a sensor source Windows only gives to administrators. In the desktop app (Phone modes → CPU temperature) press **Enable**: Phoneix downloads the open-source [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) and runs it at logon through a scheduled task created with a single admin (UAC) approval, then reads the value from its local web server (127.0.0.1 only). Without it the monitor shows "—" for CPU; GPU temperature (NVIDIA) works without it.
 - Android may block opening the monitor/deck screen while another app is in the foreground; Phoneix then shows a notification to tap.
 - Wireless mirroring needs wireless debugging; some phones switch it off on network changes, in which case Phoneix reconnects the next time you start mirroring.
 

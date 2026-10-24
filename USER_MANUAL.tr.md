@@ -4,8 +4,8 @@ Phoneix, Android telefonunu Windows bilgisayarına aynı Wi‑Fi ağı üzerinde
 
 ## 1. Kurulum
 
-1. Bilgisayarda `desktop` klasöründe `npm install` ve `npm start` çalıştır; Phoneix penceresi açılır.
-2. Telefona APK'yı kur (`android/` içinden derleyip `adb install -r app-debug.apk`).
+1. **Telefon:** [`releases/Phoneix-0.1.0.apk`](releases/Phoneix-0.1.0.apk) dosyasını telefonuna indir ve aç (Android sorarsa tarayıcın için "bilinmeyen kaynaklardan yükleme" iznini ver). Derlemek gerekmez.
+2. **Bilgisayar:** [Node.js](https://nodejs.org) kur, sonra `desktop` klasöründe `npm install` ve `npm start` çalıştır; Phoneix penceresi açılır.
 3. İsteğe bağlı ama önerilir: `adb shell pm grant app.phoneix android.permission.WRITE_SECURE_SETTINGS` — kablosuz ekran yansıtmada kablosuz hata ayıklamayı Phoneix'in kendiliğinden açabilmesini sağlar.
 4. Ekran yansıtma için [scrcpy](https://github.com/Genymobile/scrcpy/releases) dosyalarını `C:\Users\<sen>\Android\scrcpy` klasörüne, `adb` için Android `platform-tools` klasörünü `C:\Users\<sen>\Android\Sdk\platform-tools` içine koy.
 
@@ -41,7 +41,7 @@ Phoneix penceresinde **Ekranı yansıt**'a bas. Telefon biçimli bir pencere aç
 ### Sistem monitörü
 Phoneix'te **Telefon modları → Sistem monitörü**'ne bas (ya da telefonda ana ekrandaki mod düğmesi). Telefon yatay ve tam ekran olur; CPU, GPU, bellek, ekran belleği, sıcaklıklar ve ağ hızı canlı gösterilir. Çıkmak için sağ üstteki ✕ ya da Geri.
 
-> **CPU sıcaklığı "—" görünüyor:** Windows bu bilgiyi yalnızca yönetici yetkisine açar. [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)'ı yönetici olarak açık tutarsan Phoneix değeri oradan okumayı dener. GPU sıcaklığı (NVIDIA) buna gerek duymadan çalışır.
+> **CPU sıcaklığı "—" görünüyor:** Windows bu bilgiyi yalnızca yönetici yetkisine açar. Phoneix penceresinde **Telefon modları → CPU sıcaklığı → Etkinleştir**'e bas: açık kaynak [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) indirilir ve tek bir yönetici onayıyla (UAC) oturum açılışında sessizce başlatılır. Sorun olursa aynı yerdeki **Onar** düğmesine bas. GPU sıcaklığı (NVIDIA) buna gerek duymadan çalışır.
 
 ### Deck (tuş paneli)
 **Telefon modları → Deck** ile telefonda büyük tuşlardan oluşan bir panel açılır. Tuşları bilgisayardan tanımlarsın (Phoneix penceresi → **Deck tuşları**): sekmeler, ızgara ve tuş düzenleme paneli var, **Dene** düğmesiyle tuşu bilgisayarda test edebilirsin.

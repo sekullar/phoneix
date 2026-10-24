@@ -19,6 +19,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+    buildTypes {
+        // herkese dağıtılan APK: debug anahtarıyla imzalı (kurulu geliştirme sürümüyle aynı imza, üzerine güncellenir), hata ayıklanamaz
+        release { signingConfig = signingConfigs.getByName("debug"); isMinifyEnabled = false }
+    }
 }
 
 dependencies {
