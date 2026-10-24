@@ -7,6 +7,7 @@ const fs = require('fs'), path = require('path');
 const VERSION = 'v0.9.6';
 const URL = `https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/download/${VERSION}/LibreHardwareMonitor.zip`;
 const TASK = 'Phoneix Sensor Helper';
+const PORT = 8085; // LibreHardwareMonitor'ün yerel web sunucusu (yalnızca 127.0.0.1); stats.js buradan okur
 let ctx = { userData: () => '.', log: () => {} };
 let busy = false;
 
@@ -19,7 +20,8 @@ function status() {
     const installed = fs.existsSync(exe());
     ps(`$t = Get-ScheduledTask -TaskName '${TASK}' -ErrorAction SilentlyContinue; $p = Get-Process LibreHardwareMonitor -ErrorAction SilentlyContinue; "$([int][bool]$t) $([int][bool]$p)"`, (e, out) => {
       const [task, running] = out.trim().split(' ');
-      res({ installed, task: task === '1', running: running === '1', busy });
+      fetch(`http://127.0.0.1:${PORT}/data.json`, { signal: AbortSignal.timeout(1500) }).then((r) => r.ok).catch(() => false)
+        .then((web) => res({ installed, task: task === '1', running: running === '1', web, busy }));
     });
   });
 }
@@ -35,9 +37,12 @@ async function download() {
   await new Promise((res, rej) => ps(`Expand-Archive -LiteralPath '${zip}' -DestinationPath '${dir()}' -Force`, (e) => (e ? rej(new Error('Arşiv açılamadı')) : res())));
   try { fs.unlinkSync(zip); } catch {}
   if (!fs.existsSync(exe())) throw new Error('LibreHardwareMonitor.exe bulunamadı');
-  // sessiz başlasın: tepsiye küçülsün, kapatınca da tepsiye insin
+}
+
+function writeConfig() { // sessiz başlasın (tepsiye küçülür), yalnızca 127.0.0.1'de web sunucusu açık olsun
   fs.writeFileSync(path.join(dir(), 'LibreHardwareMonitor.config'), '<?xml version="1.0" encoding="utf-8"?>\n<configuration><appSettings>' +
-    ['startMinMenuItem', 'minTrayMenuItem', 'minCloseMenuItem'].map((k) => `<add key="${k}" value="true" />`).join('') + '</appSettings></configuration>\n');
+    [['startMinMenuItem', 'true'], ['minTrayMenuItem', 'true'], ['minCloseMenuItem', 'true'], ['runWebServerMenuItem', 'true'], ['listenerIp', '127.0.0.1'], ['listenerPort', String(PORT)]]
+      .map(([k, v]) => `<add key="${k}" value="${v}" />`).join('') + '</appSettings></configuration>\n');
 }
 
 /** Yükseltilmiş PowerShell çalıştırır (UAC penceresi çıkar); betik dosyası yazılır, çıkış kodu döner. */
@@ -57,8 +62,11 @@ async function setup() {
   busy = true;
   try {
     if (!fs.existsSync(exe())) await download();
+    writeConfig();
     const e = exe().replace(/'/g, "''"), d = dir().replace(/'/g, "''");
     const code = await elevated(`$ErrorActionPreference='Stop'
+Stop-ScheduledTask -TaskName '${TASK}' -ErrorAction SilentlyContinue
+Get-Process LibreHardwareMonitor -ErrorAction SilentlyContinue | Stop-Process -Force
 $a = New-ScheduledTaskAction -Execute '${e}' -WorkingDirectory '${d}'
 $t = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\\$env:USERNAME"
 $pr = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\\$env:USERNAME" -LogonType Interactive -RunLevel Highest

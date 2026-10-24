@@ -387,9 +387,9 @@
   async function sensRefresh() {
     const s = await phoneix.sensorStatus(), on = s.task || s.running;
     $('sensTxt').textContent = s.busy ? 'Kuruluyor… (yönetici onayı penceresini kontrol et)'
-      : on ? (s.running ? 'Açık: sensör yardımcısı arka planda çalışıyor, her oturum açılışında kendiliğinden başlar.' : 'Kurulu ama şu an çalışmıyor; bir sonraki oturum açılışında başlar.')
+      : on ? (s.web ? 'Açık: sensör yardımcısı arka planda çalışıyor, her oturum açılışında kendiliğinden başlar.' : 'Kurulu ama veri vermiyor (eski sürüm ayarı ya da çalışmıyor). "Onar" ile yeniden kur.')
       : 'Windows CPU sıcaklığını yalnızca yönetici yetkisiyle verir. Etkinleştirince açık kaynak LibreHardwareMonitor indirilir ve tek bir yönetici onayıyla oturum açılışında sessizce başlatılır; sonraki açılışlarda onay istenmez.';
-    $('sensOn').style.display = on ? 'none' : ''; $('sensOff').style.display = on ? '' : 'none';
+    $('sensOn').textContent = on ? 'Onar' : 'Etkinleştir'; $('sensOn').style.display = on && s.web ? 'none' : ''; $('sensOff').style.display = on ? '' : 'none';
   }
   $('sensOn').onclick = async () => { $('sensOn').disabled = true; $('sensTxt').textContent = 'İndiriliyor ve kuruluyor…'; const r = await phoneix.sensorSetup(); $('sensOn').disabled = false; toast(r.ok ? 'CPU sıcaklığı etkin' : r.error); sensRefresh(); };
   $('sensOff').onclick = async () => { const r = await phoneix.sensorRemove(); toast(r.ok ? 'Kaldırıldı' : r.error); sensRefresh(); };

@@ -61,8 +61,31 @@ function cpuSample() {
   prevCores = cores; return out;
 }
 
+// LibreHardwareMonitor'ün yerel web sunucusu (sensor.js kurar): ağaçtaki CPU donanımının sıcaklık sensörlerinden en uygununu seçer
+let web = { t: 0, v: null, busy: false };
+function pickCpuTemp(root) {
+  let best = null;
+  const walk = (n, inCpu, inTemp) => {
+    const cpuHere = inCpu || /cpu/i.test(String(n.ImageURL || ''));
+    const tempHere = inTemp || /^temperature/i.test(String(n.Text || ''));
+    if (cpuHere && tempHere && !(n.Children && n.Children.length)) {
+      const v = parseFloat(String(n.Value || '').replace(',', '.')), name = String(n.Text || '');
+      if (Number.isFinite(v) && v > 0 && v < 130) { const rank = /package|tctl|tdie|cpu/i.test(name) ? 2 : /max/i.test(name) ? 1 : 0; if (!best || rank > best.rank || (rank === best.rank && v > best.v)) best = { v, rank }; }
+    }
+    (n.Children || []).forEach((c) => walk(c, cpuHere, tempHere));
+  };
+  walk(root, false, false);
+  return best ? best.v : null;
+}
+function webTemp() {
+  if (web.busy || Date.now() - web.t < 3000) return;
+  web.busy = true; web.t = Date.now();
+  fetch('http://127.0.0.1:8085/data.json', { signal: AbortSignal.timeout(1500) }).then((r) => r.json()).then((j) => { web.v = pickCpuTemp(j); }).catch(() => { web.v = null; }).finally(() => { web.busy = false; });
+}
+
 async function tick() {
   if (Date.now() - lastAsk > IDLE_MS) return stop();
+  webTemp();
   const cpu = cpuSample(), nv = await nvidia();
   if (!nv) winGpu();
   if (nv) gpuInfo.name = nv.name;
@@ -72,7 +95,7 @@ async function tick() {
     ram: { used, total },
     gpu: nv ? { name: nv.name, util: nv.util, temp: nv.temp, vramUsed: nv.vramUsed, vramTotal: nv.vramTotal, power: nv.power, clock: nv.clock }
             : { name: 'GPU', util: gpuPs.util, temp: null, vramUsed: null, vramTotal: null, power: null, clock: null },
-    cpuTemp: net.cpuTemp == null ? null : net.cpuTemp,
+    cpuTemp: net.cpuTemp != null ? net.cpuTemp : web.v,
     net: { down: Math.round(net.down), up: Math.round(net.up) }
   };
 }
@@ -91,4 +114,4 @@ async function get() {
   if (!snap) { for (let i = 0; i < 24 && !snap; i++) await new Promise((r) => setTimeout(r, 150)); }
   return snap;
 }
-module.exports = { get, stop, active: () => !!timer };
+module.exports = {  get, stop, active: () => !!timer };

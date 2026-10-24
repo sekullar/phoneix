@@ -17,6 +17,8 @@
     </queries>
     <application
         android:label="Phoneix"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:allowBackup="false"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.Phoneix">
@@ -58,6 +60,8 @@
         <activity android:name=".ModeActivity" android:exported="false" android:launchMode="singleTop" android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize" />
         <service android:name=".NotificationService" android:exported="true"
             android:label="Phoneix"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
