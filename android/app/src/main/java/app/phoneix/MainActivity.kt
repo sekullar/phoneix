@@ -13,10 +13,15 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Base64
+import android.content.res.ColorStateList
+import android.graphics.drawable.GradientDrawable
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.View
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.Switch
 import androidx.core.app.NotificationManagerCompat
 import android.widget.TextView
@@ -35,6 +40,8 @@ class MainActivity : Activity() {
     private lateinit var upload: Button
     private lateinit var apps: Button
     private lateinit var battery: Button
+    private lateinit var modeMon: Button
+    private lateinit var modeDeck: Button
     private var askedAccess = false
     private var askedBattery = false
     private var askedNotif = false
@@ -45,47 +52,94 @@ class MainActivity : Activity() {
     private fun deviceName() = Settings.Global.getString(contentResolver, "device_name") ?: Build.MODEL
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+        super.onCreate(savedInstanceState); Ui.init(this)
         store = Store(this)
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            setBackgroundColor(Color.BLACK)
-            setPadding(dp(24), dp(64), dp(24), dp(24))
+        val frame = FrameLayout(this)
+        frame.addView(AuroraView(this), FrameLayout.LayoutParams(-1, -1))
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(56), dp(20), dp(28)) }
+        frame.addView(ScrollView(this).apply { isVerticalScrollBarEnabled = false; addView(root) }, FrameLayout.LayoutParams(-1, -1))
+        val parts = ArrayList<View>()
+
+        // başlık: degrade logo + ad
+        val head = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        head.addView(FrameLayout(this).apply {
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(Ui.A1, Ui.A2)).apply { cornerRadius = Ui.dpf(this@MainActivity, 16f) }
+            elevation = Ui.dpf(this@MainActivity, 6f)
+            addView(View(this@MainActivity).apply { background = GradientDrawable().apply { setColor(Color.TRANSPARENT); setStroke(dp(3), Color.WHITE); cornerRadius = Ui.dpf(this@MainActivity, 6f) } },
+                FrameLayout.LayoutParams(dp(17), dp(28), Gravity.CENTER))
+        }, LinearLayout.LayoutParams(dp(52), dp(52)))
+        val titles = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14), 0, 0, 0) }
+        titles.addView(TextView(this).apply { text = "Phoneix"; textSize = 28f; setTextColor(Ui.INK); paint.isFakeBoldText = true })
+        titles.addView(TextView(this).apply { text = "Telefonun, bilgisayarında."; textSize = 13f; setTextColor(Ui.DIM) })
+        head.addView(titles)
+        root.addView(head); parts.add(head)
+
+        fun card(title: String): LinearLayout {
+            val c = Ui.card(this)
+            if (title.isNotEmpty()) c.addView(TextView(this).apply { text = title.uppercase(); textSize = 11f; setTextColor(Ui.A1); paint.isFakeBoldText = true; letterSpacing = 0.12f; setPadding(0, 0, 0, dp(10)) })
+            root.addView(c, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) }); parts.add(c)
+            return c
         }
-        root.addView(TextView(this).apply { text = "Phoneix"; textSize = 32f; setTextColor(Color.WHITE) })
-        status = TextView(this).apply {
-            textSize = 16f; setTextColor(Color.LTGRAY); setPadding(0, dp(16), 0, dp(24)); gravity = Gravity.CENTER
-        }
-        root.addView(status)
-        fun btn(t: String, f: () -> Unit): Button {
-            val b = Button(this).apply { text = t; setOnClickListener { f() } }
-            root.addView(b, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+        fun btn(parent: LinearLayout, t: String, primary: Boolean = false, f: () -> Unit): Button {
+            val b = Ui.button(this, t, primary).apply { setOnClickListener { f() } }
+            parent.addView(b, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
             return b
         }
-        btn("QR ile eşleştir") { scanQr() }
-        test = btn("Test bildirimi gönder") { sendTest() }
-        unpair = btn("Eşleştirmeyi kaldır") { store.clear(); refresh("Eşleştirme kaldırıldı") }
-        upload = btn("Bilgisayara dosya gönder") {
+        fun sw(parent: LinearLayout, t: String, checked: Boolean, f: (Boolean) -> Unit) {
+            parent.addView(Switch(this).apply {
+                text = t; setTextColor(Ui.INK); isChecked = checked; setOnCheckedChangeListener { _, on -> f(on) }
+                thumbTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(Ui.A1, 0xFFFFFFFF.toInt()))
+                trackTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(0x662F8CFF, if (Ui.dark) 0x55FFFFFF else 0x55809AB5))
+            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
+        }
+
+        val conn = card("Bağlantı")
+        status = TextView(this).apply { textSize = 15f; setTextColor(Ui.INK); setPadding(0, 0, 0, dp(6)) }
+        conn.addView(status)
+        btn(conn, "QR ile eşleştir", true) { scanQr() }
+        test = btn(conn, "Test bildirimi gönder") { sendTest() }
+        unpair = btn(conn, "Eşleştirmeyi kaldır") { store.clear(); refresh("Eşleştirme kaldırıldı") }
+
+        val modes = card("Modlar")
+        modes.addView(TextView(this).apply { text = "Telefonu ikinci ekran yap: yatay, tam ekran."; textSize = 12.5f; setTextColor(Ui.DIM) })
+        modeMon = btn(modes, "📈  Sistem monitörü", true) { startActivity(Intent(this, ModeActivity::class.java).putExtra("mode", "monitor")) }
+        modeDeck = btn(modes, "🎛️  Deck") { startActivity(Intent(this, ModeActivity::class.java).putExtra("mode", "deck")) }
+
+        val xfer = card("Aktarım")
+        upload = btn(xfer, "Bilgisayara dosya gönder") {
             startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*").putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true), 7)
         }
-        btn("Yanıt testi (telefona bildirim düşür)") { ReplyTestReceiver.post(this) }
-        access = btn("Bildirim erişimi ver") { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
-        battery = btn("Pil kısıtlamasını kaldır") { askBattery() }
-        apps = btn("Hangi uygulamalar?") { startActivity(Intent(this, AppsActivity::class.java)) }
-        root.addView(Switch(this).apply {
-            text = "Bildirim metnini gizle (yalnızca uygulama adı gider)"; setTextColor(Color.LTGRAY)
-            isChecked = store.hideText; setOnCheckedChangeListener { _, on -> store.hideText = on }
-        }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16) })
-        root.addView(Switch(this).apply {
-            text = "Panoyu bilgisayarla eşitle"; setTextColor(Color.LTGRAY)
-            isChecked = store.clipSync; setOnCheckedChangeListener { _, on -> store.clipSync = on }
-        }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
-        root.addView(TextView(this).apply {
+        btn(xfer, "Yanıt testi (telefona bildirim düşür)") { ReplyTestReceiver.post(this) }
+
+        val perms = card("İzinler")
+        access = btn(perms, "Bildirim erişimi ver") { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+        battery = btn(perms, "Pil kısıtlamasını kaldır") { askBattery() }
+        apps = btn(perms, "Hangi uygulamalar?") { startActivity(Intent(this, AppsActivity::class.java)) }
+
+        val prefs = card("Ayarlar")
+        // tema seçimi: Koyu (varsayılan) / Açık / Sistem; seçince ekran yeniden kurulur
+        prefs.addView(TextView(this).apply { text = "Tema"; textSize = 15f; setTextColor(Ui.INK) })
+        val themeRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        listOf("dark" to "🌙  Koyu", "light" to "☀️  Açık", "system" to "Sistem").forEach { (id, label) ->
+            val on = store.theme == id
+            themeRow.addView(TextView(this).apply {
+                text = label; textSize = 14f; gravity = Gravity.CENTER; isClickable = true
+                setTextColor(if (on) Color.WHITE else Ui.INK); setPadding(0, dp(11), 0, dp(11))
+                background = if (on) GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(Ui.A1, Ui.A2)).apply { cornerRadius = Ui.dpf(this@MainActivity, 12f) }
+                else Ui.round(this@MainActivity, Ui.GLASS, 12, Ui.LINE)
+                setOnClickListener { if (store.theme != id) { store.theme = id; recreate() } }
+                Ui.pressable(this)
+            }, LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(6) })
+        }
+        prefs.addView(themeRow, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8); bottomMargin = dp(4) })
+        sw(prefs, "Bildirim metnini gizle (yalnızca uygulama adı gider)", store.hideText) { store.hideText = it }
+        sw(prefs, "Panoyu bilgisayarla eşitle", store.clipSync) { store.clipSync = it }
+        prefs.addView(TextView(this).apply {
             text = "Bilgisayarda kopyaladığın kendiliğinden telefona gelir. Telefonda kopyaladığını göndermek için Hızlı Ayarlar'daki \"Panoyu gönder\" karosuna dokun (ya da Paylaş → Phoneix)."
-            textSize = 12f; setTextColor(Color.GRAY); setPadding(0, dp(6), 0, 0)
+            textSize = 12f; setTextColor(Ui.DIM); setPadding(0, dp(8), 0, 0)
         })
-        setContentView(root)
+        setContentView(frame); Ui.window(this)
+        Ui.enter(parts)
         refresh()
         handle(intent)
     }
@@ -107,6 +161,7 @@ class MainActivity : Activity() {
         battery.isEnabled = !free
         access.text = if (granted) "Bildirim erişimi açık ✓" else "Bildirim erişimi ver"
         apps.isEnabled = paired
+        modeMon.isEnabled = paired; modeDeck.isEnabled = paired
         upload.isEnabled = paired
         apps.text = "Hangi uygulamalar? (${store.apps.size} seçili)"
         if (paired && msg == null) status.text = status.text.toString() + "\n" + (if (granted) "Bildirim aktarma: açık" else "Bildirim aktarma için erişim gerekli")
@@ -174,7 +229,7 @@ class MainActivity : Activity() {
         } catch (e: Exception) { /* sistem reddetti: kullanıcı karoyu elle ekleyebilir */ }
     }
 
-    override fun onResume() { super.onResume(); refresh(); setupNext() }
+    override fun onResume() { super.onResume(); DebugShot.track(this); refresh(); setupNext() }
 
     private fun ui(f: () -> Unit) = runOnUiThread(f)
 

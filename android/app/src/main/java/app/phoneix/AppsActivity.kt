@@ -29,15 +29,18 @@ class AppsActivity : Activity() {
     private fun dp(v: Int) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), resources.displayMetrics).toInt()
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+        super.onCreate(savedInstanceState); Ui.init(this)
         store = Store(this)
         selected.addAll(store.apps)
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.BLACK); setPadding(dp(16), dp(48), dp(16), 0) }
-        root.addView(TextView(this).apply { text = "Bildirimleri geçecek uygulamalar"; textSize = 20f; setTextColor(Color.WHITE) })
-        root.addView(TextView(this).apply { text = "Seçmediklerin bilgisayara hiç gönderilmez."; setTextColor(Color.LTGRAY); setPadding(0, dp(4), 0, dp(8)) })
-        val list = ListView(this).apply { divider = null }
-        root.addView(list, LinearLayout.LayoutParams(-1, 0, 1f))
-        setContentView(root)
+        val frame = android.widget.FrameLayout(this)
+        frame.addView(AuroraView(this), android.widget.FrameLayout.LayoutParams(-1, -1))
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(48), dp(16), 0) }
+        frame.addView(root, android.widget.FrameLayout.LayoutParams(-1, -1))
+        root.addView(TextView(this).apply { text = "Bildirimleri geçecek uygulamalar"; textSize = 20f; setTextColor(Ui.INK); paint.isFakeBoldText = true })
+        root.addView(TextView(this).apply { text = "Seçmediklerin bilgisayara hiç gönderilmez."; setTextColor(Ui.DIM); setPadding(0, dp(4), 0, dp(8)) })
+        val list = ListView(this).apply { divider = null; clipToPadding = false; setPadding(0, 0, 0, dp(16)) }
+        root.addView(Ui.card(this).apply { setPadding(dp(8), dp(4), dp(8), dp(4)); addView(list, LinearLayout.LayoutParams(-1, -1)) }, LinearLayout.LayoutParams(-1, 0, 1f).apply { bottomMargin = dp(16) })
+        setContentView(frame); Ui.window(this)
 
         adapter = object : BaseAdapter() {
             override fun getCount() = items.size
@@ -48,8 +51,8 @@ class AppsActivity : Activity() {
                 val row = (v as? LinearLayout) ?: LinearLayout(this@AppsActivity).apply {
                     orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(8), 0, dp(8))
                     addView(ImageView(context), LinearLayout.LayoutParams(dp(40), dp(40)))
-                    addView(TextView(context).apply { textSize = 16f; setTextColor(Color.WHITE); setPadding(dp(14), 0, 0, 0) }, LinearLayout.LayoutParams(0, -2, 1f))
-                    addView(CheckBox(context).apply { isClickable = false; isFocusable = false })
+                    addView(TextView(context).apply { textSize = 16f; setTextColor(Ui.INK); setPadding(dp(14), 0, 0, 0) }, LinearLayout.LayoutParams(0, -2, 1f))
+                    addView(CheckBox(context).apply { isClickable = false; isFocusable = false; buttonTintList = android.content.res.ColorStateList.valueOf(Ui.A1) })
                 }
                 (row.getChildAt(0) as ImageView).setImageDrawable(it.icon)
                 (row.getChildAt(1) as TextView).text = it.label

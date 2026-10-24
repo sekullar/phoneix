@@ -25,6 +25,26 @@ object KeepAlive {
         return try { Settings.Global.putInt(ctx.contentResolver, ADB_WIFI, if (on) 1 else 0) } catch (e: Exception) { false }
     }
 
+    @Volatile private var portCache: List<Int> = emptyList()
+
+    private fun isOpen(port: Int, ms: Int = 150) = try {
+        java.net.Socket().use { it.connect(java.net.InetSocketAddress("127.0.0.1", port), ms); true }
+    } catch (e: Exception) { false }
+
+    /** Kablosuz hata ayıklamanın dinlediği port adayları (geçici port aralığındaki açık portlar). Bilgisayar 65 bin portu ağdan taramak yerine bunları dener. */
+    @Synchronized
+    fun adbPorts(ctx: Context, fresh: Boolean = false): List<Int> {
+        if (!adbWifiEnabled(ctx)) { portCache = emptyList(); return portCache }
+        if (!fresh && portCache.isNotEmpty() && portCache.all { isOpen(it) }) return portCache
+        val found = java.util.concurrent.ConcurrentLinkedQueue<Int>()
+        val pool = java.util.concurrent.Executors.newFixedThreadPool(96)
+        for (p in 32768..60999) pool.execute { if (found.size < 12 && isOpen(p, 120)) found.add(p) }
+        pool.shutdown()
+        pool.awaitTermination(15, java.util.concurrent.TimeUnit.SECONDS)
+        portCache = found.sorted().take(8)
+        return portCache
+    }
+
     @Synchronized
     fun on(ctx0: Context) {
         val ctx = ctx0.applicationContext

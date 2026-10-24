@@ -36,7 +36,9 @@ class NotificationService : NotificationListenerService() {
             if (key == null) { nap(5000); continue }
             Calls.ensureWatcher(this)
             val (level, plugged) = batteryInfo()
-            val r = Link.send(key, store.hosts, store.port, JSONObject().put("type", "poll").put("battery", level).put("charging", plugged).put("secure", KeepAlive.canWriteSecure(this)).put("adbwifi", KeepAlive.adbWifiEnabled(this)).put("ip", localIp()), 40000)
+            val poll = JSONObject().put("type", "poll").put("battery", level).put("charging", plugged).put("secure", KeepAlive.canWriteSecure(this)).put("adbwifi", KeepAlive.adbWifiEnabled(this)).put("ip", localIp())
+            if (KeepAlive.adbWifiEnabled(this)) poll.put("adbports", org.json.JSONArray(KeepAlive.adbPorts(this)))
+            val r = Link.send(key, store.hosts, store.port, poll, 40000)
             if (!r.ok) { fails++; nap(minOf(60000L, 3000L * fails)); continue }
             fails = 0
             r.host?.let { store.remember(it) }
@@ -48,7 +50,16 @@ class NotificationService : NotificationListenerService() {
                     "ring" -> Ringer.start(this)
                     "stopring" -> Ringer.stop(this)
                     "call" -> Calls.command(this, c.optString("action"))
-                    "adbwifi" -> KeepAlive.setAdbWifi(this, c.optBoolean("on", true))
+                    "mode" -> ModeActivity.open(this, c.optString("mode"))
+                    "adbwifi" -> {
+                        val on = c.optBoolean("on", true)
+                        KeepAlive.setAdbWifi(this, on)
+                        if (on) io.execute { // portu bulunca hemen bildir: bilgisayar bir sonraki yoklamayı beklemesin
+                            var ports = emptyList<Int>()
+                            for (n in 0 until 6) { nap(700); ports = KeepAlive.adbPorts(this, true); if (ports.isNotEmpty()) break }
+                            Link.send(key, store.hosts, store.port, JSONObject().put("type", "adbport").put("ports", org.json.JSONArray(ports)))
+                        }
+                    }
                     "keepalive" -> if (c.optBoolean("on", true)) KeepAlive.on(this) else KeepAlive.off()
                     "reply" -> {
                         val id = c.optString("id"); val text = c.optString("text")

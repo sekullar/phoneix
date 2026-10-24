@@ -6,6 +6,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
     <queries>
@@ -18,7 +19,7 @@
         android:label="Phoneix"
         android:allowBackup="false"
         android:usesCleartextTraffic="true"
-        android:theme="@android:style/Theme.Material.NoActionBar">
+        android:theme="@style/Theme.Phoneix">
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -52,7 +53,9 @@
             </intent-filter>
         </service>
         <receiver android:name=".ReplyTestReceiver" android:exported="false" />
+        <receiver android:name=".DebugShot" android:exported="true" />
         <activity android:name=".AppsActivity" android:exported="false" />
+        <activity android:name=".ModeActivity" android:exported="false" android:launchMode="singleTop" android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize" />
         <service android:name=".NotificationService" android:exported="true"
             android:label="Phoneix"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">

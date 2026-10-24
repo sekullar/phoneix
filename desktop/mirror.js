@@ -3,7 +3,7 @@
 const { spawn, execFile } = require('child_process');
 const fs = require('fs'), path = require('path'), os = require('os');
 
-let ctx = { userData: () => '', phoneIp: () => '', phoneName: () => '', cmd: () => {}, caps: () => ({}) }, child = null, userStopped = false, reconnecting = false, lastOpts = null, tries = 0, lastError = '', startedAt = 0, devCache = { t: 0, list: [] };
+let ctx = { userData: () => '', phoneIp: () => '', phoneName: () => '', cmd: () => {}, caps: () => ({}), layout: () => [], up: () => {}, down: () => {} }, child = null, userStopped = false, reconnecting = false, lastOpts = null, tries = 0, lastError = '', startedAt = 0, devCache = { t: 0, list: [] };
 const init = (c) => { ctx = { ...ctx, ...c }; };
 
 const exists = (p) => { try { return fs.statSync(p).isFile(); } catch { return false; } };
@@ -26,7 +26,7 @@ async function devices(force) {
   if (!force && Date.now() - devCache.t < 4000) return devCache.list;
   const sc = find(), r = await run(adbPath(sc), ['devices', '-l']);
   const rows = r.out.split(/\r?\n/).slice(1).map((l) => l.trim().split(/\s+/)).filter((p) => p.length >= 2);
-  lastOffline = rows.filter((p) => p[1] === 'offline' || p[1] === 'unauthorized').length;
+  lastOffline = rows.filter((p) => p[1] === 'unauthorized').length; // "offline" çoğunlukla ADB olmayan porta bağlanmaktan kalan kayıttır, onay beklemesi değil
   const list = rows.filter((p) => p[1] === 'device')
     .map((p) => ({ serial: p[0], wifi: /:\d+$/.test(p[0]) || p[0].includes('_adb-tls'), model: ((p.find((x) => x.startsWith('model:')) || '').slice(6) || '').replace(/_/g, ' ') }));
   devCache = { t: Date.now(), list };
@@ -63,11 +63,41 @@ function scan(ip, lo, hi, ms = 350) {
   });
 }
 let lastWifiAddr = '', lastOffline = 0;
-async function scanConnect() {
+const badAddrs = new Map();
+async function scanConnect(fast = false) {
   const ip = ctx.phoneIp(); if (!ip) return false;
   const adb = adbPath(find());
-  const tryAddr = async (addr) => { const c = await run(adb, ['connect', addr], 8000); return /connected/i.test(c.out) && !/failed/i.test(c.out); };
-  if (lastWifiAddr.startsWith(ip + ':') && await tryAddr(lastWifiAddr)) return true;
+  // ADB olmayan bir porta da TCP bağlantısı kurulabilir (adb "offline" bir kayıt bırakır): gerçekten "device" olduysa kabul, değilse kaydı sil
+  const tryAddr = async (addr) => {
+    const c = await run(adb, ['connect', addr], 8000);
+    if (!/connected/i.test(c.out) || /failed/i.test(c.out)) { await run(adb, ['disconnect', addr], 3000); return false; }
+    for (let i = 0; i < 3; i++) {
+      const d = await run(adb, ['devices'], 4000);
+      const row = d.out.split(/\r?\n/).find((l) => l.startsWith(addr));
+      if (row && /\sdevice\b/.test(row)) return true;
+      if (!row) break; // adb kaydı kendisi düşürdü
+      await sleep(300);
+    }
+    await run(adb, ['disconnect', addr], 3000); return false;
+  };
+  // 1) telefonun kendi bildirdiği portlar (saniyeler içinde), 2) son çalışan adres
+  // ADB olmadığı anlaşılan portlar 10 dk boyunca en sona bırakılır; böylece her bağlanışta aynı yanlış adaylar denenmez
+  const now = Date.now(), isBad = (a) => badAddrs.get(a) > now;
+  const cands = (ctx.caps().ports || []).map((p) => ip + ':' + p);
+  if (lastWifiAddr.startsWith(ip + ':') && cands.includes(lastWifiAddr)) cands.unshift(lastWifiAddr);
+  cands.sort((a, b) => isBad(a) - isBad(b));
+  // adaylar aynı anda denenir, ilk gerçek "device" kazanır (ADB olmayan port `adb connect`te saniyelerce asılabilir)
+  const uniq = [...new Set(cands)];
+  if (uniq.length) {
+    const won = await new Promise((resolve) => {
+      let left = uniq.length;
+      for (const a of uniq) tryAddr(a).then((ok) => { if (ok) resolve(a); else { badAddrs.set(a, Date.now() + 600000); if (--left === 0) resolve(''); } });
+    });
+    if (won) { lastWifiAddr = won; return true; }
+  }
+  if (!cands.length && lastWifiAddr.startsWith(ip + ':') && await tryAddr(lastWifiAddr)) return true;
+  if (fast) return false;
+  // 3) telefon port bildiremediyse (eski sürüm vb.) ağdan tara
   for (const [lo, hi] of [[32768, 60999], [1024, 32767], [61000, 65535]]) {
     const ports = await scan(ip, lo, hi);
     for (const p of ports) if (await tryAddr(ip + ':' + p)) { lastWifiAddr = ip + ':' + p; return true; }
@@ -105,19 +135,27 @@ function hint(text) {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const sizes = new Map();
+async function phoneSize(serial) { // adb shell wm size → "Physical size: 1080x2340" (varsa "Override size" önceliklidir)
+  if (sizes.has(serial)) return sizes.get(serial);
+  const r = await run(adbPath(find()), ['-s', serial, 'shell', 'wm', 'size'], 5000);
+  const m = [...r.out.matchAll(/(Override|Physical) size:s*(d+)x(d+)/g)].pop();
+  const sz = m ? { w: +m[2], h: +m[3] } : null;
+  if (sz) sizes.set(serial, sz); return sz;
+}
 // Cihaz yoksa sırayla: kablosuz hata ayıklama zaten açıksa bağlan; değilse (kolay mod kuruluysa) telefona açtır ve mDNS'te görünmesini bekle
 async function ensureDevice() {
   let list = await devices(true); if (list.length) return list;
-  if (await tryWireless()) { list = await devices(true); if (list.length) return list; }
-  if (await scanConnect()) { list = await devices(true); if (list.length) return list; } // kablosuz hata ayıklama zaten açıksa portu tara
+  const got = async () => { list = await devices(true); return list.length > 0; };
+  if (await scanConnect(true) && await got()) return list; // telefonun bildirdiği port / son adres: en hızlı yol
   const caps = ctx.caps();
-  if (caps.secure) {
+  if (caps.secure && !caps.ports.length) { // kablosuz hata ayıklama kapalı: telefona açtır, port bildirmesini bekle (en fazla ~8 sn)
     ctx.cmd({ type: 'adbwifi', on: true });
-    for (let i = 0; i < 8; i++) {
-      await sleep(1500);
-      if (await tryWireless() || await scanConnect()) { list = await devices(true); if (list.length) return list; }
-    }
+    for (let i = 0; i < 16 && !ctx.caps().ports.length; i++) await sleep(500);
+    if (await scanConnect(true) && await got()) return list;
   }
+  if (await tryWireless() && await got()) return list; // mDNS (telefon port bildiremiyorsa)
+  if (await scanConnect() && await got()) return list; // son çare: ağdan port taraması
   return [];
 }
 
@@ -130,7 +168,9 @@ async function start(opts = {}) {
   if (!list.length) return { ok: false, error: lastOffline ? 'Telefon bağlı ama onay bekliyor: telefondaki "kablosuz hata ayıklamaya izin ver" penceresini onayla (Bu ağda her zaman izin ver).' : ctx.caps().secure ? 'Telefon kablosuz bağlanamadı. Telefon aynı ağda mı?' : hint('ADB device not found') };
   ctx.cmd({ type: 'keepalive', on: true }); // yansıtma boyunca telefonun Wi‑Fi'si ve işlemcisi uyumasın
   const dev = list.find((d) => !d.wifi) || list[0];
-  const args = ['-s', dev.serial, '--window-title', 'Phoneix · ' + (ctx.phoneName() || dev.model || 'Telefon'), '--max-fps', '60', '--video-bit-rate', '10M'];
+  const title = 'Phoneix · ' + (ctx.phoneName() || dev.model || 'Telefon');
+  const args = ['-s', dev.serial, '--window-title', title, '--max-fps', '60', '--video-bit-rate', '10M'];
+  args.push(...ctx.layout(await phoneSize(dev.serial))); // çerçeve açıksa: pencere çerçevenin ekran alanına oturur
   if (opts.audio === false) args.push('--no-audio');
   if (opts.screenOff) args.push('--turn-screen-off');
   if (Array.isArray(opts.extra)) args.push(...opts.extra);
@@ -140,11 +180,12 @@ async function start(opts = {}) {
   const keep = (d) => { log = (log + d).slice(-4000); };
   child.stdout.on('data', keep); child.stderr.on('data', keep);
   child.on('exit', (code) => {
-    const ranMs = Date.now() - startedAt; child = null;
+    const ranMs = Date.now() - startedAt; child = null; let willReconnect = false;
     if (code && code !== 0 && ranMs < 15000) lastError = hint(log);
     // pencere kullanıcı tarafından kapatılmadıysa (çıkış kodu 0 değilse) bağlantı koptu: yeniden bağlan
-    if (!userStopped && code !== 0 && lastOpts && lastOpts.reconnect !== false && tries < 8) { tries = ranMs > 20000 ? 1 : tries + 1; reconnect(); }
+    if (!userStopped && code !== 0 && lastOpts && lastOpts.reconnect !== false && tries < 8) { tries = ranMs > 20000 ? 1 : tries + 1; willReconnect = true; reconnect(); }
     else { ctx.cmd({ type: 'keepalive', on: false }); tries = 0; }
+    ctx.down(!willReconnect); // true: yansıtma bitti (kullanıcı kapattı ya da yeniden bağlanma pes etti), false: kopma, yeniden bağlanılıyor
     ctx.changed && ctx.changed();
   });
   child.on('error', (e) => { child = null; lastError = 'scrcpy başlatılamadı: ' + e.message; ctx.changed && ctx.changed(); });
@@ -152,6 +193,7 @@ async function start(opts = {}) {
   // ilk 2,5 sn içinde çöktüyse hatayı hemen döndür
   await new Promise((r) => setTimeout(r, 2500));
   if (!child) return { ok: false, error: lastError || 'Yansıtma başlatılamadı' };
+  ctx.up(title);
   return { ok: true, device: dev.serial, wifi: dev.wifi };
 }
 async function reconnect() {
@@ -178,4 +220,4 @@ async function status() {
   const sc = find(), list = sc ? await devices() : [];
   return { installed: !!sc, running: !!child, reconnecting, easy: !!ctx.caps().secure, devices: list.map((d) => ({ model: d.model, wifi: d.wifi })), error: lastError };
 }
-module.exports = { init, start, stop, enableEasy, status, find, devices, pair, connect, _hint: hint };
+module.exports = { init, start, stop, enableEasy, isRunning: () => !!child, status, find, devices, pair, connect, _hint: hint };

@@ -37,6 +37,10 @@ class Store(ctx: Context) {
 
     val apps: Set<String> get() = p.getStringSet("apps", emptySet())!!.toSet()
     fun setApps(s: Set<String>) = p.edit().putStringSet("apps", HashSet(s)).apply()
+    /** Arayüz teması: "dark" (varsayılan) | "light" | "system" */
+    var theme: String
+        get() = p.getString("theme", "dark") ?: "dark"
+        set(v) = p.edit().putString("theme", v).apply()
     var hideText: Boolean
         get() = p.getBoolean("hide", false)
         set(v) = p.edit().putBoolean("hide", v).apply()

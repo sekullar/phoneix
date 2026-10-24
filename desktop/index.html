@@ -6,72 +6,112 @@
 <title>Phoneix</title>
 <style>
   :root {
-    --bg: #0d0d12; --card: #17171f; --line: #26262f; --text: #f3f3f7; --dim: #9a9aa8;
-    --a1: #ff5e96; --a2: #8a5cf6; --ok: #3ddc97; --warn: #ffb454;
+    --bg1: #eaf6ff; --bg2: #d3eaff; --ink: #0b2a4a; --dim: #5b7a99; --line: rgba(47,140,255,.16);
+    --glass: rgba(255,255,255,.64); --glass2: rgba(255,255,255,.85);
+    --a1: #2f8cff; --a2: #5ac8fa; --ok: #1fb97a; --warn: #f5a524; --bad: #e5484d;
+    --shadow: 0 10px 34px rgba(47,120,200,.14);
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 14px/1.45 "Segoe UI Variable", "Segoe UI", system-ui, sans-serif; }
-  body { overflow-y: auto; }
-  main { max-width: 460px; margin: 0 auto; padding: 22px 20px 28px; display: flex; flex-direction: column; gap: 14px; }
-  header { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
-  .logo { width: 44px; height: 44px; border-radius: 13px; background: linear-gradient(135deg, var(--a1), var(--a2)); display: grid; place-items: center; }
-  .logo i { width: 16px; height: 26px; border: 3px solid #fff; border-radius: 5px; position: relative; display: block; }
+  html, body { margin: 0; height: 100%; color: var(--ink); font: 14px/1.45 "Segoe UI Variable", "Segoe UI", system-ui, sans-serif; }
+  body { overflow-y: auto; background: linear-gradient(160deg, var(--bg1), var(--bg2) 55%, #e4f2ff) fixed; }
+  /* hareketli aurora arka planı */
+  .aurora { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+  .aurora i { position: absolute; border-radius: 50%; filter: blur(70px); opacity: .55; will-change: transform; }
+  .aurora i:nth-child(1) { width: 420px; height: 420px; left: -120px; top: -90px; background: #7cc4ff; animation: d1 18s ease-in-out infinite alternate; }
+  .aurora i:nth-child(2) { width: 380px; height: 380px; right: -140px; top: 160px; background: #9fe7ff; animation: d2 22s ease-in-out infinite alternate; }
+  .aurora i:nth-child(3) { width: 460px; height: 460px; left: 20%; bottom: -220px; background: #a9b9ff; opacity: .4; animation: d3 26s ease-in-out infinite alternate; }
+  @keyframes d1 { to { transform: translate(120px, 90px) scale(1.15); } }
+  @keyframes d2 { to { transform: translate(-110px, 120px) scale(.9); } }
+  @keyframes d3 { to { transform: translate(140px, -80px) scale(1.2); } }
+  main { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; padding: 24px 20px 30px; display: flex; flex-direction: column; gap: 14px; }
+  header { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; animation: rise .6s both; }
+  .logo { position: relative; width: 48px; height: 48px; border-radius: 15px; background: linear-gradient(135deg, var(--a1), var(--a2)); display: grid; place-items: center; box-shadow: 0 8px 22px rgba(47,140,255,.4); overflow: hidden; }
+  .logo::after { content: ""; position: absolute; top: -60%; left: -60%; width: 60%; height: 220%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent); transform: rotate(20deg); animation: shine 4.5s ease-in-out infinite; }
+  @keyframes shine { 0%, 55% { left: -70%; } 100% { left: 140%; } }
+  .logo i { width: 17px; height: 28px; border: 3px solid #fff; border-radius: 6px; position: relative; display: block; }
   .logo i::after { content: ""; position: absolute; top: 3px; right: 2px; width: 4px; height: 4px; border-radius: 50%; background: #fff; }
-  h1 { font-size: 20px; margin: 0; letter-spacing: .2px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: .2px; }
   header p { margin: 0; color: var(--dim); font-size: 12.5px; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
-  .card h2 { font-size: 11px; font-weight: 600; letter-spacing: .9px; text-transform: uppercase; color: var(--dim); margin: 0 0 12px; }
+  .card { background: var(--glass); border: 1px solid rgba(255,255,255,.9); border-radius: 20px; padding: 16px; box-shadow: var(--shadow); backdrop-filter: blur(18px) saturate(1.4); animation: rise .6s both; transition: transform .25s, box-shadow .25s; }
+  main > .card:nth-child(2) { animation-delay: .05s; } main > .card:nth-child(3) { animation-delay: .1s; } main > .card:nth-child(4) { animation-delay: .15s; } main > .card:nth-child(5) { animation-delay: .2s; } main > .card:nth-child(n+6) { animation-delay: .25s; }
+  .card:hover { box-shadow: 0 14px 40px rgba(47,120,200,.2); }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .card h2 { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--a1); margin: 0 0 12px; }
   .row { display: flex; align-items: center; gap: 12px; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--dim); flex: none; }
-  .dot.ok { background: var(--ok); box-shadow: 0 0 0 4px rgba(61,220,151,.16); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #aebfd3; flex: none; transition: background .3s; }
+  .dot.ok { background: var(--ok); animation: beat 2s ease-out infinite; }
   .dot.warn { background: var(--warn); }
+  @keyframes beat { 0% { box-shadow: 0 0 0 0 rgba(31,185,122,.45); } 70%, 100% { box-shadow: 0 0 0 9px rgba(31,185,122,0); } }
   .grow { flex: 1; min-width: 0; }
   .big { font-size: 17px; font-weight: 600; }
   .dim { color: var(--dim); font-size: 12.5px; }
   .ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-  button { font: inherit; color: var(--text); background: #22222c; border: 1px solid var(--line); border-radius: 10px; padding: 9px 14px; cursor: pointer; transition: background .15s, transform .08s; }
-  button:hover { background: #2a2a36; }
-  button:active { transform: scale(.97); }
-  button.primary { background: linear-gradient(135deg, var(--a1), var(--a2)); border-color: transparent; font-weight: 600; }
-  button.primary:hover { filter: brightness(1.08); }
-  button.danger { color: #ff8a8a; }
-  button:disabled { opacity: .45; cursor: default; }
-  .qrwrap { background: #fff; border-radius: 14px; padding: 8px; width: 232px; height: 232px; margin: 4px auto 14px; }
+  button, select { font: inherit; color: var(--ink); background: var(--glass2); border: 1px solid var(--line); border-radius: 12px; padding: 9px 14px; cursor: pointer; transition: transform .15s, box-shadow .2s, background .2s; box-shadow: 0 2px 8px rgba(47,120,200,.08); }
+  button:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(47,120,200,.18); background: #fff; }
+  button:active { transform: scale(.96); }
+  button.primary { color: #fff; background: linear-gradient(135deg, var(--a1), var(--a2)); border-color: transparent; font-weight: 600; box-shadow: 0 6px 18px rgba(47,140,255,.4); }
+  button.primary:hover { filter: brightness(1.06); box-shadow: 0 10px 26px rgba(47,140,255,.5); background: linear-gradient(135deg, var(--a1), var(--a2)); }
+  button.danger { color: var(--bad); }
+  button:disabled { opacity: .5; cursor: default; transform: none; box-shadow: none; }
+  button.busy { position: relative; overflow: hidden; } button.busy::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent); animation: sweep 1s linear infinite; }
+  @keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+  .qrwrap { background: #fff; border-radius: 16px; padding: 8px; width: 232px; height: 232px; margin: 4px auto 14px; box-shadow: var(--shadow); animation: rise .5s both; }
   .qrwrap svg { width: 100%; height: 100%; display: block; }
   ol { margin: 0 0 4px; padding-left: 20px; color: var(--dim); font-size: 13px; }
   ol li { margin: 3px 0; }
   .center { text-align: center; }
   .empty { text-align: center; padding: 6px 0 2px; }
-  .phone { width: 54px; height: 54px; border-radius: 16px; margin: 0 auto 10px; background: #1f1f29; display: grid; place-items: center; }
-  .phone i { width: 18px; height: 30px; border: 3px solid var(--dim); border-radius: 6px; display: block; }
+  .phone { width: 58px; height: 58px; border-radius: 18px; margin: 0 auto 10px; background: linear-gradient(135deg, #fff, #d6eaff); display: grid; place-items: center; box-shadow: var(--shadow); animation: float 3.4s ease-in-out infinite; }
+  @keyframes float { 50% { transform: translateY(-5px); } }
+  .phone i { width: 18px; height: 30px; border: 3px solid var(--a1); border-radius: 6px; display: block; }
   ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-  li.act { display: flex; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); }
+  li.act { display: flex; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); animation: rise .35s both; }
   li.act:first-child { border-top: 0; padding-top: 0; }
   li.act time { color: var(--dim); font-size: 12px; flex: none; width: 54px; }
   li.act span { min-width: 0; overflow-wrap: anywhere; }
   label.sw { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; }
-  label.sw input { appearance: none; width: 38px; height: 22px; border-radius: 11px; background: #2c2c38; position: relative; transition: background .2s; flex: none; cursor: pointer; }
-  label.sw input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .2s; }
+  label.sw input { appearance: none; width: 40px; height: 23px; border-radius: 12px; background: #c3d6ea; position: relative; transition: background .25s; flex: none; cursor: pointer; }
+  label.sw input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 17px; height: 17px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.25); transition: transform .25s cubic-bezier(.3,1.4,.5,1); }
   label.sw input:checked { background: linear-gradient(135deg, var(--a1), var(--a2)); }
-  label.sw input:checked::after { transform: translateX(16px); }
-  .toast { position: fixed; left: 50%; bottom: 18px; transform: translate(-50%, 20px); opacity: 0; background: #2b2b38; border: 1px solid var(--line); padding: 8px 14px; border-radius: 10px; transition: .25s; pointer-events: none; }
+  label.sw input:checked::after { transform: translateX(17px); }
+  .toast { position: fixed; z-index: 5; left: 50%; bottom: 18px; transform: translate(-50%, 20px); opacity: 0; background: rgba(11,42,74,.92); color: #fff; padding: 9px 16px; border-radius: 12px; transition: .3s; pointer-events: none; backdrop-filter: blur(8px); }
   .toast.on { opacity: 1; transform: translate(-50%, 0); }
-  .drop { border: 1.5px dashed #3a3a48; border-radius: 12px; padding: 14px; text-align: center; transition: .15s; }
-  .drop.over { border-color: var(--a1); background: rgba(255,94,150,.07); }
+  .drop { border: 1.5px dashed rgba(47,140,255,.4); border-radius: 14px; padding: 14px; text-align: center; transition: .2s; }
+  .drop.over { border-color: var(--a1); background: rgba(47,140,255,.1); transform: scale(1.01); }
   .rep { padding: 9px 0; border-top: 1px solid var(--line); } .rep:first-child { border-top: 0; padding-top: 0; }
   .rep .who { font-weight: 600; font-size: 13px; color: var(--a1); } .rep .msg { color: var(--dim); font-size: 13px; margin: 2px 0 6px; overflow-wrap: anywhere; }
-  .rep .row2 { display: flex; gap: 6px; } .rep input { flex: 1; min-width: 0; background: #1d1d27; color: var(--text); border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; font: inherit; outline: none; }
-  .rep input:focus { border-color: var(--a2); }
+  .rep .row2 { display: flex; gap: 6px; }
+  input[type=text], input:not([type]), input[type=url], select.f { background: rgba(255,255,255,.85); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 8px 11px; font: inherit; outline: none; min-width: 0; transition: border-color .2s, box-shadow .2s; }
+  input[type=text]:focus, input:not([type]):focus { border-color: var(--a1); box-shadow: 0 0 0 3px rgba(47,140,255,.18); }
+  .rep input { flex: 1; }
   details.wl { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; } details.wl summary { cursor: pointer; color: var(--dim); font-size: 13px; }
-  details.wl ol { margin: 8px 0; } details.wl input { background: #1d1d27; color: var(--text); border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; font: inherit; outline: none; min-width: 0; } details.wl input:focus { border-color: var(--a2); }
+  details.wl ol { margin: 8px 0; }
   .frow { display: flex; gap: 6px; margin: 6px 0; } .frow input { flex: 1; }
-  .bar { height: 4px; border-radius: 2px; background: #2c2c38; margin-top: 5px; overflow: hidden; }
+  .bar { height: 5px; border-radius: 3px; background: rgba(47,140,255,.15); margin-top: 5px; overflow: hidden; }
   .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--a1), var(--a2)); width: 0; transition: width .25s; }
+  [hidden] { display: none !important; }
+  /* modlar */
+  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .mode { position: relative; overflow: hidden; text-align: left; padding: 14px; border-radius: 16px; background: linear-gradient(150deg, rgba(255,255,255,.95), rgba(214,234,255,.8)); border: 1px solid rgba(255,255,255,.95); }
+  .mode b { display: block; font-size: 15px; margin: 6px 0 2px; } .mode span { font-size: 12px; color: var(--dim); display: block; }
+  .mode .ico { font-size: 26px; display: inline-block; transition: transform .3s; } .mode:hover .ico { transform: scale(1.18) rotate(-6deg); }
+  .mode::before { content: ""; position: absolute; width: 120px; height: 120px; right: -40px; top: -50px; border-radius: 50%; background: radial-gradient(circle, rgba(90,200,250,.5), transparent 70%); }
+  /* deck düzenleyici */
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .tab { padding: 6px 12px; border-radius: 10px; font-size: 13px; }
+  .tab.on { color: #fff; background: linear-gradient(135deg, var(--a1), var(--a2)); border-color: transparent; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .tile { height: 78px; border-radius: 16px; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; font-weight: 600; border: 2px solid transparent; box-shadow: 0 6px 14px rgba(0,0,0,.12); padding: 6px; text-shadow: 0 1px 2px rgba(0,0,0,.25); }
+  .tile .ti { font-size: 24px; line-height: 1; text-shadow: none; } .tile span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tile.sel { border-color: var(--ink); transform: scale(1.04); } .tile.add { background: rgba(255,255,255,.7); color: var(--a1); border: 1.5px dashed rgba(47,140,255,.5); box-shadow: none; text-shadow: none; font-size: 22px; font-weight: 400; }
+  .edit { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); display: grid; grid-template-columns: 70px 1fr; gap: 8px 10px; align-items: center; animation: rise .3s both; }
+  .edit label { color: var(--dim); font-size: 12.5px; } .edit input, .edit select { width: 100%; } .edit input[type=color] { padding: 2px; height: 34px; }
   [hidden] { display: none !important; }
 </style>
 </head>
 <body>
+<div class="aurora"><i></i><i></i><i></i></div>
 <main>
   <header>
     <div class="logo"><i></i></div>
@@ -108,6 +148,40 @@
         <button class="danger" id="unpair">Kaldır</button>
       </div>
     </div>
+  </section>
+
+  <section class="card" id="modesCard" hidden>
+    <h2>Telefon modları</h2>
+    <div class="modes">
+      <button class="mode" id="modeMon"><span class="ico">📈</span><b>Sistem monitörü</b><span>CPU, GPU, RAM ve ağ — telefon ikinci monitör olur</span></button>
+      <button class="mode" id="modeDeck"><span class="ico">🎛️</span><b>Deck</b><span>Tek dokunuşla kısayol, medya ve uygulama tuşları</span></button>
+    </div>
+    <div class="dim" style="margin-top:10px">Telefon ön plandaysa mod hemen açılır; değilse bildirimden dokunman gerekir. Telefonda Phoneix ana ekranından da açabilirsin.</div>
+  </section>
+
+  <section class="card" id="deckCard" hidden>
+    <h2>Deck tuşları</h2>
+    <div class="tabs" id="dtabs"></div>
+    <div class="grid" id="dgrid"></div>
+    <div class="edit" id="dedit" hidden>
+      <label>Ad</label><input id="dlabel" maxlength="24">
+      <label>Simge</label><input id="dicon" maxlength="4" placeholder="Emoji, ör. 🎙️">
+      <label>Renk</label><input id="dcolor" type="color">
+      <label>Eylem</label>
+      <select id="dtype" class="f">
+        <option value="keys">Kısayol tuşu</option><option value="media">Medya / ses</option><option value="url">Web sitesi aç</option>
+        <option value="app">Uygulama / dosya aç</option><option value="bar">Dynamic Bar'da göster</option><option value="mirror">Ekran yansıtmayı aç/kapat</option>
+        <option value="lock">Bilgisayarı kilitle</option><option value="cmd">Komut çalıştır</option>
+      </select>
+      <label id="dalabel" hidden>Başlat menüsü</label><select id="dapps" class="f" hidden><option value="">Uygulama seç…</option></select>
+      <label id="dvlabel">Değer</label>
+      <div class="row" style="gap:6px"><input id="dvalue" style="flex:1"><select id="dmedia" class="f" hidden></select><button id="dpick" hidden>Seç</button></div>
+    </div>
+    <div class="btns" id="dbtns" hidden>
+      <button id="dtest">Dene</button><button id="dleft">←</button><button id="dright">→</button><button class="danger" id="ddel">Sil</button>
+    </div>
+    <div class="btns"><button id="dpage">+ Sayfa</button><button id="drpage">Sayfayı yeniden adlandır</button><button class="danger" id="ddpage">Sayfayı sil</button></div>
+    <label class="sw" style="margin-top:12px" id="dcmdrow"><div>Komut çalıştırma eylemine izin ver<div class="dim">Kapalıyken "Komut çalıştır" tuşları çalışmaz. Yalnızca burada tanımladığın komutlar çalışır.</div></div><input type="checkbox" id="dallow"></label>
   </section>
 
   <section class="card">
@@ -199,6 +273,7 @@
     const p = st.phone; $('batt').textContent = p && Date.now() - p.t < 120000 ? '🔋 %' + p.battery + (p.charging ? ' · şarjda' : '') : '';
     $('ring').textContent = st.ringing ? 'Çalmayı durdur' : 'Telefonumu çaldır';
     $('net').textContent = st.listening ? 'Dinleniyor: ' + (st.ips.join(', ') || 'ağ adresi yok') + ' · bağlantı noktası ' + st.port : 'Eşleşme yokken dinlenmez.';
+    $('modesCard').hidden = !st.paired; $('deckCard').hidden = !st.paired;
     const mr = st.mirror || {}, md = (mr.devices || [])[0];
     $('mdot').className = 'dot' + (mr.running ? ' ok' : md ? ' ok' : ' warn');
     $('mtitle').textContent = mr.running ? 'Yansıtılıyor' : !mr.installed ? 'scrcpy kurulu değil' : md ? 'Telefon hazır' : 'Telefon USB’de görünmüyor';
@@ -248,6 +323,66 @@
     $('noact').hidden = st.activity.length > 0;
   }
 
+  // ---------- deck düzenleyici ----------
+  let dk = null, dPage = 0, dBtn = -1, saveT = null;
+  const MEDIA = [['playpause', 'Oynat / Duraklat'], ['next', 'Sonraki parça'], ['prev', 'Önceki parça'], ['stop', 'Durdur'], ['volup', 'Sesi aç'], ['voldown', 'Sesi kıs'], ['mute', 'Sessiz']];
+  MEDIA.forEach(([v, t]) => { const o = document.createElement('option'); o.value = v; o.textContent = t; $('dmedia').append(o); });
+  const HINT = { keys: ['Kısayol', 'ctrl+shift+m'], url: ['Adres', 'https://…'], app: ['Yol', 'C:\\Program Files\\…\\uygulama.exe'], bar: ['Mesaj', 'Dynamic Bar’da görünecek metin'], cmd: ['Komut', 'ör. notepad.exe'] };
+  const persist = () => { clearTimeout(saveT); saveT = setTimeout(() => phoneix.deckSave({ pages: dk.pages }), 350); };
+  const curPage = () => dk.pages[Math.min(dPage, dk.pages.length - 1)];
+  function renderDeck() {
+    if (!dk) return;
+    dPage = Math.min(dPage, dk.pages.length - 1);
+    const tabs = $('dtabs'); tabs.textContent = '';
+    dk.pages.forEach((p, i) => { const b = document.createElement('button'); b.className = 'tab' + (i === dPage ? ' on' : ''); b.textContent = p.name; b.onclick = () => { dPage = i; dBtn = -1; renderDeck(); }; tabs.append(b); });
+    const g = $('dgrid'); g.textContent = '';
+    curPage().buttons.forEach((bt, i) => {
+      const t = document.createElement('button'); t.className = 'tile' + (i === dBtn ? ' sel' : ''); t.style.background = 'linear-gradient(145deg,' + bt.color + ',' + bt.color + 'cc)';
+      const ic = document.createElement('div'); ic.className = 'ti'; ic.textContent = bt.icon || '▫️'; const sp = document.createElement('span'); sp.textContent = bt.label || 'Tuş';
+      t.append(ic, sp); t.onclick = () => { dBtn = i; renderDeck(); }; g.append(t);
+    });
+    if (curPage().buttons.length < 24) { const a = document.createElement('button'); a.className = 'tile add'; a.textContent = '+'; a.onclick = () => { const n = { id: 'b' + Date.now().toString(36), label: 'Yeni tuş', icon: '⭐', color: '#2f8cff', action: { type: 'keys', value: '' } }; curPage().buttons.push(n); dBtn = curPage().buttons.length - 1; persist(); renderDeck(); }; g.append(a); }
+    const b = curPage().buttons[dBtn];
+    $('dedit').hidden = !b; $('dbtns').hidden = !b;
+    if (b) {
+      if (document.activeElement !== $('dlabel')) $('dlabel').value = b.label;
+      if (document.activeElement !== $('dicon')) $('dicon').value = b.icon;
+      $('dcolor').value = b.color; $('dtype').value = b.action.type;
+      const ty = b.action.type, h = HINT[ty];
+      $('dmedia').hidden = ty !== 'media'; $('dvalue').hidden = !h; $('dpick').hidden = ty !== 'app'; $('dapps').hidden = $('dalabel').hidden = ty !== 'app'; if (ty === 'app') loadApps();
+      $('dvlabel').hidden = !h && ty !== 'media'; $('dvlabel').textContent = ty === 'media' ? 'Tuş' : h ? h[0] : '';
+      if (h) { $('dvalue').placeholder = h[1]; if (document.activeElement !== $('dvalue')) $('dvalue').value = b.action.value; }
+      if (ty === 'media') $('dmedia').value = MEDIA.some(([v]) => v === b.action.value) ? b.action.value : 'playpause';
+    }
+    $('dallow').checked = !!dk.allowCmd;
+  }
+  async function loadDeck() { dk = await phoneix.deckGet(); renderDeck(); }
+  const edit = (f) => { const b = curPage().buttons[dBtn]; if (!b) return; f(b); persist(); renderDeck(); };
+  $('dlabel').oninput = (e) => edit((b) => { b.label = e.target.value; });
+  $('dicon').oninput = (e) => edit((b) => { b.icon = e.target.value; });
+  $('dcolor').oninput = (e) => edit((b) => { b.color = e.target.value; });
+  $('dtype').onchange = (e) => edit((b) => { b.action = { type: e.target.value, value: e.target.value === 'media' ? 'playpause' : '' }; });
+  $('dvalue').oninput = (e) => edit((b) => { b.action.value = e.target.value; });
+  $('dmedia').onchange = (e) => edit((b) => { b.action.value = e.target.value; });
+  let appsLoaded = false;
+  async function loadApps() {
+    if (appsLoaded) return; appsLoaded = true;
+    const list = await phoneix.deckApps(), sel = $('dapps');
+    list.forEach((a) => { const o = document.createElement('option'); o.value = a.path; o.textContent = a.name; sel.append(o); });
+  }
+  $('dapps').onchange = (e) => { const o = e.target.selectedOptions[0]; if (!e.target.value) return; edit((b) => { b.action.value = e.target.value; if (!b.label || b.label === 'Yeni tuş') b.label = o.textContent; b.icon = ''; }); e.target.value = ''; };
+  $('dpick').onclick = async () => { const p = await phoneix.deckPickApp(); if (p) edit((b) => { b.action.value = p; $('dvalue').value = p; }); };
+  $('dtest').onclick = async () => { clearTimeout(saveT); await phoneix.deckSave({ pages: dk.pages }); const r = await phoneix.deckTest(curPage().buttons[dBtn].id); toast(r.ok ? 'Çalıştı' : r.error); };
+  $('ddel').onclick = () => { curPage().buttons.splice(dBtn, 1); dBtn = -1; persist(); renderDeck(); };
+  const move = (d) => { const a = curPage().buttons, j = dBtn + d; if (j < 0 || j >= a.length) return; [a[dBtn], a[j]] = [a[j], a[dBtn]]; dBtn = j; persist(); renderDeck(); };
+  $('dleft').onclick = () => move(-1); $('dright').onclick = () => move(1);
+  $('dpage').onclick = () => { if (dk.pages.length >= 8) return toast('En fazla 8 sayfa'); dk.pages.push({ id: 'p' + Date.now().toString(36), name: 'Sayfa ' + (dk.pages.length + 1), buttons: [] }); dPage = dk.pages.length - 1; dBtn = -1; persist(); renderDeck(); };
+  $('drpage').onclick = () => { const p = curPage(), el = $('dtabs').children[dPage]; const inp = document.createElement('input'); inp.value = p.name; inp.maxLength = 24; inp.style.width = '110px'; el.replaceWith(inp); inp.focus(); inp.select(); const done = () => { p.name = inp.value.trim() || p.name; persist(); renderDeck(); }; inp.onblur = done; inp.onkeydown = (e) => { if (e.key === 'Enter') done(); }; };
+  $('ddpage').onclick = () => { if (dk.pages.length <= 1) return toast('Son sayfa silinemez'); dk.pages.splice(dPage, 1); dPage = 0; dBtn = -1; persist(); renderDeck(); };
+  $('dallow').onchange = (e) => { dk.allowCmd = e.target.checked; phoneix.deckAllowCmd(e.target.checked); };
+  $('modeMon').onclick = () => { phoneix.modeOpen('monitor'); toast('Telefona gönderildi'); };
+  $('modeDeck').onclick = () => { phoneix.modeOpen('deck'); toast('Telefona gönderildi'); };
+
   async function startPair() {
     $('qr').textContent = '';
     showQr = true;
@@ -276,7 +411,7 @@
   });
   $('ring').onclick = () => { phoneix.ring(!(st && st.ringing)); };
   $('clip').onchange = (e) => phoneix.clipSync(e.target.checked);
-  $('mstart').onclick = async () => { $('mstart').disabled = true; const r = await phoneix.mirrorStart(); $('mstart').disabled = false; toast(r && r.ok ? 'Ekran açıldı' : (r && r.error) || 'Başlatılamadı'); };
+  $('mstart').onclick = async () => { $('mstart').disabled = true; $('mstart').classList.add('busy'); const r = await phoneix.mirrorStart(); $('mstart').classList.remove('busy'); $('mstart').disabled = false; toast(r && r.ok ? 'Ekran açıldı' : (r && r.error) || 'Başlatılamadı'); };
   $('wpair').onclick = async () => { $('wpair').disabled = true; const r = await phoneix.mirrorPair($('wpa').value, $('wpc').value); $('wpair').disabled = false; toast(r.ok ? r.text : r.error); if (r.ok) $('wpc').value = ''; };
   $('wconn').onclick = async () => { const r = await phoneix.mirrorConnect($('wca').value); toast(r.ok ? 'Bağlandı' : r.error); };
   $('easyBtn').onclick = async () => { $('easyBtn').disabled = true; const r = await phoneix.mirrorEasy(); $('easyBtn').disabled = false; toast(r.ok ? 'Kolay mod kuruldu' : r.error); };
@@ -288,6 +423,7 @@
   phoneix.onState((s) => { st = s; render(); });
   phoneix.onPaired(() => { showQr = false; toast('Telefon eşleşti 🎉'); });
   phoneix.state().then((s) => { st = s; render(); });
+  loadDeck();
   setInterval(render, 15000);
 })();
 </script>

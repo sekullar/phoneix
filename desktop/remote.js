@@ -9,7 +9,7 @@ module.exports = {
   onWake: (f) => { wakeFn = f; },
   push(cmd) {
     prune();
-    if (cmd.type === 'clip' || cmd.type === 'ring' || cmd.type === 'stopring') q = q.filter((c) => c.type !== cmd.type); // aynı türden yalnızca sonuncusu
+    if (cmd.type === 'clip' || cmd.type === 'ring' || cmd.type === 'stopring' || cmd.type === 'mode') q = q.filter((c) => c.type !== cmd.type); // aynı türden yalnızca sonuncusu
     q.push({ ...cmd, t: Date.now() });
     wakeFn();
   },

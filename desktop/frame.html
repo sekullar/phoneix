@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:">
+<style>
+  /* Telefon yansıtma çerçevesi: yüklenirken kendisi gösterilir, bağlanınca scrcpy penceresi tam ekran alanının üstüne oturur */
+  :root { --pad: 28px; --bez: 10px; --top: 34px; --ease: cubic-bezier(.22,.61,.36,1); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 100%; height: 100%; background: transparent; overflow: hidden; font: 500 14px "Segoe UI Variable", "Segoe UI", system-ui, sans-serif; color: #17395e; user-select: none; }
+  .body { position: absolute; inset: var(--pad); border-radius: 24px; padding: 0 var(--bez) var(--bez); display: flex; flex-direction: column;
+    background: linear-gradient(165deg, rgba(255,255,255,.97), rgba(226,240,255,.95)); box-shadow: 0 24px 60px rgba(30,90,170,.28), 0 0 0 1px rgba(120,170,230,.4);
+    opacity: 0; transform: scale(.9); transform-origin: 50% 50%; }
+  body.in .body { animation: open .62s cubic-bezier(.2,.85,.3,1.08) forwards; }
+  body.out .body { animation: close .38s var(--ease) forwards; }
+  @keyframes open { 0% { opacity: 0; transform: scale(.9) translateY(10px); } 100% { opacity: 1; transform: none; } }
+  @keyframes close { to { opacity: 0; transform: scale(.94); } }
+  .title { height: var(--top); flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 4px 0 8px; cursor: default; }
+  .title b { font-weight: 600; font-size: 13px; letter-spacing: .1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .x { width: 24px; height: 24px; border-radius: 50%; border: 0; background: rgba(23,57,94,.08); color: #17395e; font: 600 13px/24px system-ui; text-align: center; cursor: default; transition: background .2s, transform .15s; }
+  .x:hover { background: #ff6b6e; color: #fff; } .x:active { transform: scale(.9); }
+  .screen { position: relative; flex: 1; border-radius: 14px; overflow: hidden; background: linear-gradient(170deg, #dcecff, #c2dcfb 60%, #adcff8); transition: background 1s var(--ease); }
+  .aur { position: absolute; inset: -20%; background: radial-gradient(40% 35% at 25% 20%, rgba(255,255,255,.7), transparent 70%), radial-gradient(45% 40% at 80% 75%, rgba(120,190,255,.55), transparent 70%); animation: drift 9s ease-in-out infinite alternate; }
+  @keyframes drift { to { transform: translate(6%, 4%) scale(1.08); } }
+  .center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; transition: opacity .5s var(--ease), transform .5s var(--ease); }
+  .ic { width: 64px; height: 64px; border-radius: 20px; display: grid; place-items: center; background: linear-gradient(135deg, #2f8cff, #5ac8fa); box-shadow: 0 10px 26px rgba(47,140,255,.4); animation: float 3.2s ease-in-out infinite; }
+  .ic i { width: 20px; height: 32px; border: 3px solid #fff; border-radius: 7px; display: block; position: relative; } .ic i::after { content: ""; position: absolute; top: 3px; right: 3px; width: 4px; height: 4px; border-radius: 50%; background: #fff; }
+  @keyframes float { 50% { transform: translateY(-5px); } }
+  .name { font-weight: 600; font-size: 15px; text-shadow: 0 1px 8px rgba(255,255,255,.8); text-align: center; padding: 0 16px; }
+  .sub { font-size: 12.5px; opacity: .65; margin-top: -8px; text-align: center; padding: 0 20px; min-height: 16px; }
+  .spin { width: 28px; height: 28px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,.55); border-top-color: #fff; animation: spin 1s linear infinite; transition: opacity .3s; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  body.connected .center { opacity: 0; transform: scale(1.04); } body.connected .spin { opacity: 0; }
+  body.error .screen { background: linear-gradient(170deg, #fbe4e6, #f5cdd1 60%, #efbcc2); } body.error .spin { display: none; }
+  body.error .body { animation: open .5s forwards, nudge .6s .5s var(--ease); }
+  @keyframes nudge { 30% { transform: translateX(-5px); } 65% { transform: translateX(3px); } }
+</style>
+</head>
+<body>
+<div class="body">
+  <div class="title"><b id="ttl"></b><button class="x" id="x" title="Yansıtmayı kapat">✕</button></div>
+  <div class="screen">
+    <div class="aur"></div>
+    <div class="center"><div class="ic"><i></i></div><div class="name" id="nm"></div><div class="sub" id="sb"></div><div class="spin"></div></div>
+  </div>
+</div>
+<script>
+  const b = document.body, $ = (i) => document.getElementById(i);
+  const LABEL = { connecting: 'Bağlanılıyor', reconnecting: 'Yeniden bağlanılıyor', connected: '', error: 'Bağlanamadı' };
+  frame.onState((p) => {
+    if (p.phase === 'out') { b.classList.add('out'); return; }
+    if (p.name !== undefined) { $('nm').textContent = p.name; $('ttl').textContent = p.name; }
+    $('sb').textContent = p.text || LABEL[p.phase] || '';
+    b.classList.remove('connected', 'error', 'out');
+    if (p.phase === 'connected') b.classList.add('connected');
+    if (p.phase === 'error') b.classList.add('error');
+    if (!b.classList.contains('in')) b.classList.add('in');
+  });
+  $('x').onclick = () => frame.close();
+  // başlık çubuğundan sürükleme (pencere odak almadığı için elle: işaretçi yakalanır, ana süreç hem çerçeveyi hem scrcpy'yi taşır)
+  const tt = document.querySelector('.title'); let drag = false;
+  tt.addEventListener('pointerdown', (e) => { if (e.target.id === 'x') return; drag = true; tt.setPointerCapture(e.pointerId); frame.drag('start', e.screenX, e.screenY); });
+  tt.addEventListener('pointermove', (e) => { if (drag) frame.drag('move', e.screenX, e.screenY); });
+  tt.addEventListener('pointerup', () => { drag = false; frame.drag('end'); });
+</script>
+</body>
+</html>

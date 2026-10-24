@@ -53,3 +53,14 @@ The poll reply also carries `cmds` (short-lived, at most 30 s): `{type:"clip",te
 | `replyres` | phone → PC | `id`, `ok`, `error` |
 | `call` | phone → PC | `state` (`ringing`, `active`, `ended`), `who`, `speaker` |
 | `poll` | phone → PC | also `battery`, `charging` |
+
+## Phone modes (monitor, deck) and wireless debugging ports
+| type | direction | fields | reply |
+|---|---|---|---|
+| `stats` | phone → PC | none (sent about once per second while the monitor mode is open) | `stats: {cpu, cores[], cpuName, ram{used,total}, gpu{name,util,temp,vramUsed,vramTotal,power,clock}, net{down,up}}`; sampling stops ~8 s after the last request |
+| `deck` | phone → PC | none | `deck: {pages:[{id,name,buttons:[{id,label,icon,color}]}]}` (no action details leave the PC) |
+| `press` | phone → PC | `id` | `ok` or `ok:false, error` — the action is looked up in the PC's own deck config; the phone cannot send commands or paths |
+| `adbport` | phone → PC | `ports[]` | sent right after the PC asks the phone to enable wireless debugging; the `poll` message also carries `adbports` |
+
+New `cmds`: `{type:"mode",mode:"monitor|deck"}` (opens the mode on the phone; Android may block background launches, so a tappable notification is posted too), `{type:"adbwifi",on}`, `{type:"keepalive",on}`.
+Local API: `POST /mode {mode}`, `GET /status` also returns `adbports`.
