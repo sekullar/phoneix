@@ -9,6 +9,8 @@ const mirror = require('./mirror');
 const stats = require('./stats');
 const deck = require('./deck');
 const frame = require('./frame');
+const sensor = require('./sensor');
+sensor.init({ userData: () => app.getPath('userData'), log: (m) => log(m) });
 const http = require('http'), crypto = require('crypto');
 
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -152,7 +154,10 @@ async function startMirror() {
 }
 function stopMirror() { mirror.stop(); frame.close(); push(); } // scrcpy kapanınca çerçeve de kapanır
 frame.onClose(() => stopMirror());
-ipcMain.handle('mirror:start', () => startMirror());
+ipcMain.handle('sensor:status', () => sensor.status());
+ipcMain.handle('sensor:setup', () => sensor.setup());
+ipcMain.handle('sensor:remove', () => sensor.remove());
+ipcMain.handle('mirror:start',() => startMirror());
 ipcMain.handle('mirror:pair', (_e, addr, code) => mirror.pair(addr, code).then((r) => { push(); return r; }));
 ipcMain.handle('mirror:connect', (_e, addr) => mirror.connect(addr).then((r) => { push(); return r; }));
 ipcMain.handle('mirror:easy', () => mirror.enableEasy().then((r) => { push(); return r; }));

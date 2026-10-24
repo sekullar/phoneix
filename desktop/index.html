@@ -156,6 +156,10 @@
       <button class="mode" id="modeMon"><span class="ico">📈</span><b>Sistem monitörü</b><span>CPU, GPU, RAM ve ağ — telefon ikinci monitör olur</span></button>
       <button class="mode" id="modeDeck"><span class="ico">🎛️</span><b>Deck</b><span>Tek dokunuşla kısayol, medya ve uygulama tuşları</span></button>
     </div>
+    <div style="margin-top:12px"><b>CPU sıcaklığı</b>
+      <div class="dim" id="sensTxt" style="margin-top:4px"></div>
+      <div class="btns"><button id="sensOn">Etkinleştir</button><button class="danger" id="sensOff" style="display:none">Kaldır</button></div>
+    </div>
     <div class="dim" style="margin-top:10px">Telefon ön plandaysa mod hemen açılır; değilse bildirimden dokunman gerekir. Telefonda Phoneix ana ekranından da açabilirsin.</div>
   </section>
 
@@ -380,6 +384,16 @@
   $('drpage').onclick = () => { const p = curPage(), el = $('dtabs').children[dPage]; const inp = document.createElement('input'); inp.value = p.name; inp.maxLength = 24; inp.style.width = '110px'; el.replaceWith(inp); inp.focus(); inp.select(); const done = () => { p.name = inp.value.trim() || p.name; persist(); renderDeck(); }; inp.onblur = done; inp.onkeydown = (e) => { if (e.key === 'Enter') done(); }; };
   $('ddpage').onclick = () => { if (dk.pages.length <= 1) return toast('Son sayfa silinemez'); dk.pages.splice(dPage, 1); dPage = 0; dBtn = -1; persist(); renderDeck(); };
   $('dallow').onchange = (e) => { dk.allowCmd = e.target.checked; phoneix.deckAllowCmd(e.target.checked); };
+  async function sensRefresh() {
+    const s = await phoneix.sensorStatus(), on = s.task || s.running;
+    $('sensTxt').textContent = s.busy ? 'Kuruluyor… (yönetici onayı penceresini kontrol et)'
+      : on ? (s.running ? 'Açık: sensör yardımcısı arka planda çalışıyor, her oturum açılışında kendiliğinden başlar.' : 'Kurulu ama şu an çalışmıyor; bir sonraki oturum açılışında başlar.')
+      : 'Windows CPU sıcaklığını yalnızca yönetici yetkisiyle verir. Etkinleştirince açık kaynak LibreHardwareMonitor indirilir ve tek bir yönetici onayıyla oturum açılışında sessizce başlatılır; sonraki açılışlarda onay istenmez.';
+    $('sensOn').style.display = on ? 'none' : ''; $('sensOff').style.display = on ? '' : 'none';
+  }
+  $('sensOn').onclick = async () => { $('sensOn').disabled = true; $('sensTxt').textContent = 'İndiriliyor ve kuruluyor…'; const r = await phoneix.sensorSetup(); $('sensOn').disabled = false; toast(r.ok ? 'CPU sıcaklığı etkin' : r.error); sensRefresh(); };
+  $('sensOff').onclick = async () => { const r = await phoneix.sensorRemove(); toast(r.ok ? 'Kaldırıldı' : r.error); sensRefresh(); };
+  sensRefresh();
   $('modeMon').onclick = () => { phoneix.modeOpen('monitor'); toast('Telefona gönderildi'); };
   $('modeDeck').onclick = () => { phoneix.modeOpen('deck'); toast('Telefona gönderildi'); };
 
