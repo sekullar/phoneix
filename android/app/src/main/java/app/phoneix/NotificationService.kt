@@ -28,8 +28,23 @@ class NotificationService : NotificationListenerService() {
     }
     override fun onListenerDisconnected() { polling = false }
 
+    /** Bilgisayara ulaşılamıyor / yeniden bağlandı bildirimi (kesinti başına en çok bir kez). */
+    private fun pcNotice(back: Boolean) {
+        try {
+            val nm = getSystemService(NotificationManager::class.java)
+            nm.createNotificationChannel(NotificationChannel("pc", "Bilgisayar bağlantısı", NotificationManager.IMPORTANCE_DEFAULT))
+            val b = Notification.Builder(this, "pc").setSmallIcon(android.R.drawable.stat_notify_sync_noanim).setAutoCancel(true)
+                .setContentTitle(if (back) "Bilgisayara yeniden bağlandı" else "Bilgisayara ulaşılamıyor")
+                .setContentText(if (back) "Phoneix bağlantısı geri geldi" else "Bilgisayar kapalı, uykuda ya da başka bir ağda olabilir")
+            if (back) b.setTimeoutAfter(6000)
+            nm.notify(7100, b.build())
+        } catch (e: Exception) { }
+    }
+
     private fun pollLoop() {
         var fails = 0
+        var failSince = 0L
+        var alerted = false
         while (polling) {
             val store = Store(this)
             val key = store.key
@@ -39,8 +54,16 @@ class NotificationService : NotificationListenerService() {
             val poll = JSONObject().put("type", "poll").put("battery", level).put("charging", plugged).put("secure", KeepAlive.canWriteSecure(this)).put("adbwifi", KeepAlive.adbWifiEnabled(this)).put("ip", localIp())
             if (KeepAlive.adbWifiEnabled(this)) poll.put("adbports", org.json.JSONArray(KeepAlive.adbPorts(this)))
             val r = Link.send(key, store.hosts, store.port, poll, 40000)
-            if (!r.ok) { fails++; nap(minOf(60000L, 3000L * fails)); continue }
-            fails = 0
+            if (!r.ok) {
+                fails++
+                val now = System.currentTimeMillis()
+                if (failSince == 0L) failSince = now
+                if (!alerted && store.pcAlert && now - failSince >= 120_000) { alerted = true; pcNotice(false) }
+                // Bilgisayar yeniden başlarken komutlar geç kalmasın: ilk 2 dakika sık dene, sonra pil için seyrelt
+                nap(if (now - failSince < 120_000) minOf(8000L, 2000L * fails) else 60000L); continue
+            }
+            fails = 0; failSince = 0L
+            if (alerted) { alerted = false; pcNotice(true) }
             r.host?.let { store.remember(it) }
             val cmds = r.reply?.optJSONArray("cmds")
             if (cmds != null) for (i in 0 until cmds.length()) {
@@ -111,6 +134,7 @@ class NotificationService : NotificationListenerService() {
         if (n.category == Notification.CATEGORY_CALL && sbn.packageName != packageName) { Calls.onNotification(this, sbn); return } // aramalar ayrı akış
         val own = sbn.packageName == packageName
         if (own && n.channelId != "phx_test") return // yalnızca yanıt testi bildirimi kendi paketimizden geçer
+        if (!own && store.otpCopy) otpCheck(sbn, key, store)
         if (!own && sbn.packageName !in store.apps) return
         if (n.flags and (Notification.FLAG_GROUP_SUMMARY or Notification.FLAG_ONGOING_EVENT) != 0) return
         if (store.skipSilent && !own) { // sistem bildirimleri ("bağlantınız kontrol ediliyor") düşük önemli kanallardan gelir; mesajlar yüksek önemlidir
@@ -132,6 +156,27 @@ class NotificationService : NotificationListenerService() {
             .put("title", if (hide) app else title.take(80))
             .put("text", if (hide) "Yeni bildirim" else text.take(200))
         if (!hide) Replies.register(sbn)?.let { msg.put("reply", it) } // yanıtlanabilir bildirim: bilgisayarda "Yanıtla" çıkar
+        val hosts = store.hosts; val port = store.port
+        io.execute { Link.send(key, hosts, port, msg) }
+    }
+
+    private var lastOtp = "" to 0L
+
+    /** Mesaj uygulamasından gelen bildirimde doğrulama kodu varsa bilgisayara gönderir (bilgisayar panoya kopyalar). Kodun kendisi hiçbir yere kaydedilmez. */
+    private fun otpCheck(sbn: StatusBarNotification, key: ByteArray, store: Store) {
+        val sms = setOf(android.provider.Telephony.Sms.getDefaultSmsPackage(this), "com.google.android.apps.messaging", "com.samsung.android.messaging", "com.android.mms")
+        if (sbn.packageName !in sms) return
+        val x = sbn.notification.extras
+        val text = listOf(x.getCharSequence(Notification.EXTRA_BIG_TEXT), x.getCharSequence(Notification.EXTRA_TEXT), x.getCharSequence(Notification.EXTRA_TITLE))
+            .joinToString(" ") { it?.toString().orEmpty() }
+        if (!Regex("(kod|code|şifre|sifre|doğrulama|dogrulama|otp|verification|password)", RegexOption.IGNORE_CASE).containsMatchIn(text)) return
+        // 4-8 haneli sayı; "123-456" / "123 456" biçimi birleştirilir; uzun sayılar (telefon, tutar) alınmaz
+        val m = Regex("""(?<!\d|[+]|\d[.,])(\d{3}[ -]\d{3}|\d{4,8})(?!\d|[.,]\d|\s?(?:TL|₺|TRY|USD|EUR|\$|€))""", RegexOption.IGNORE_CASE).find(text) ?: return
+        val code = m.value.replace(Regex("[ -]"), "")
+        val now = System.currentTimeMillis()
+        if (code == lastOtp.first && now - lastOtp.second < 30000) return
+        lastOtp = code to now
+        val msg = JSONObject().put("type", "otp").put("code", code).put("app", label(sbn.packageName).take(40))
         val hosts = store.hosts; val port = store.port
         io.execute { Link.send(key, hosts, port, msg) }
     }

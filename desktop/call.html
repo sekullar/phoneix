@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="tr"><head><meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; media-src data:; script-src 'unsafe-inline'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';  script-src 'unsafe-inline'">
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; font-family: 'Segoe UI', system-ui, sans-serif; user-select: none; }
@@ -22,7 +22,7 @@
 <body>
   <div class="card" id="card">
     <div class="top"><div class="ico">📞</div><div style="min-width:0"><div class="who" id="who"></div><div class="sub" id="sub"></div></div></div>
-    <div class="btns" id="bRing"><button class="ok" data-a="answer">Aç</button><button class="no" data-a="reject">Reddet</button></div>
+    <div class="btns" id="bRing"><button class="ok" id="bAns" data-a="answer">Aç</button><button class="no" data-a="reject">Reddet</button></div>
     <div class="btns hid" id="bAct"><button class="no" data-a="hangup">Kapat</button></div>
   </div>
 <script>
@@ -34,6 +34,7 @@
     $('card').classList.toggle('ringing', ringing);
     $('who').textContent = s.who || 'Bilinmeyen numara';
     $('sub').textContent = ringing ? 'Arıyor…' : 'Görüşmede';
+    $('bAns').classList.toggle('hid', !!s.voip);
     $('bRing').classList.toggle('hid', !ringing); $('bAct').classList.toggle('hid', ringing);
   });
 
@@ -51,14 +52,29 @@
       });
     } catch {}
   }
-  let clip = null;
+  // Zil dosyası <audio> yerine WebAudio ile çalınır: <audio> Windows'ta medya oturumu açar ve Dynamic Bar müzik maskotunu tetikler.
+  // Aynı arama için ring tekrar tekrar gelir (isim çözülünce, durum yenilenince): çalıyorsa yeniden başlatılmaz.
+  let on = false, curSrc = '', node = null, token = 0;
+  function stopRing() {
+    token++; on = false; clearInterval(timer); timer = null;
+    if (node) { try { node.stop(); } catch {} node = null; }
+  }
+  function fallback() { if (on && !timer) { chime(); timer = setInterval(chime, 2600); } }
+  async function playFile(src, my) {
+    try {
+      ac = ac || new AudioContext(); if (ac.state === 'suspended') ac.resume();
+      const bin = atob(src.slice(src.indexOf(',') + 1)), bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const buf = await ac.decodeAudioData(bytes.buffer);
+      if (my !== token) return; // bu arada ring durdu ya da yenilendi
+      const n = ac.createBufferSource(), g = ac.createGain();
+      n.buffer = buf; n.loop = true; g.gain.value = 0.8; n.connect(g); g.connect(ac.destination); n.start(); node = n;
+    } catch { if (my === token) fallback(); } // çözülemezse Phoneix melodisi
+  }
   callApi.onRing((r) => {
-    clearInterval(timer); timer = null;
-    if (clip) { clip.pause(); clip = null; }
-    if (!r.on) return;
-    if (r.src) {
-      clip = new Audio(r.src); clip.loop = true; clip.volume = 0.8;
-      clip.play().catch(() => { clip = null; chime(); timer = setInterval(chime, 2600); }); // çalınamazsa Phoneix melodisi
-    } else { chime(); timer = setInterval(chime, 2600); }
+    if (!r.on) return stopRing();
+    if (on && r.src === curSrc) return; // zaten çalıyor
+    stopRing(); on = true; curSrc = r.src || '';
+    if (curSrc) playFile(curSrc, token); else fallback();
   });
 </script></body></html>

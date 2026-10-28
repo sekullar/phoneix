@@ -42,6 +42,12 @@ class Store(ctx: Context) {
         get() = p.getString("theme", "dark") ?: "dark"
         set(v) = p.edit().putString("theme", v).apply()
     /** Düşük önemli (sessiz) bildirimleri gönderme: WhatsApp "bağlantınız kontrol ediliyor" gibi sistem bildirimleri */
+    var otpCopy: Boolean // SMS doğrulama kodlarını bilgisayarın panosuna kopyala (varsayılan kapalı)
+        get() = p.getBoolean("otpCopy", false)
+        set(v) = p.edit().putBoolean("otpCopy", v).apply()
+    var pcAlert: Boolean // bilgisayara uzun süre ulaşılamayınca telefonda haber ver
+        get() = p.getBoolean("pcAlert", true)
+        set(v) = p.edit().putBoolean("pcAlert", v).apply()
     var skipSilent: Boolean
         get() = p.getBoolean("skipSilent", true)
         set(v) = p.edit().putBoolean("skipSilent", v).apply()

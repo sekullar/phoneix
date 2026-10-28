@@ -4,7 +4,7 @@ Phoneix, Android telefonunu Windows bilgisayarına aynı Wi‑Fi ağı üzerinde
 
 ## 1. Kurulum
 
-1. **Telefon:** [`releases/Phoneix-0.2.0.apk`](releases/Phoneix-0.2.0.apk) dosyasını telefonuna indir ve aç (Android sorarsa tarayıcın için "bilinmeyen kaynaklardan yükleme" iznini ver). Derlemek gerekmez.
+1. **Telefon:** [`releases/Phoneix-0.3.0.apk`](releases/Phoneix-0.3.0.apk) dosyasını telefonuna indir ve aç (Android sorarsa tarayıcın için "bilinmeyen kaynaklardan yükleme" iznini ver). Derlemek gerekmez.
 2. **Bilgisayar:** [Node.js](https://nodejs.org) kur, sonra `desktop` klasöründe `npm install` ve `npm start` çalıştır; Phoneix penceresi açılır.
 3. İsteğe bağlı ama önerilir: `adb shell pm grant app.phoneix android.permission.WRITE_SECURE_SETTINGS` — kablosuz ekran yansıtmada kablosuz hata ayıklamayı Phoneix'in kendiliğinden açabilmesini sağlar.
 4. Ekran yansıtma için [scrcpy](https://github.com/Genymobile/scrcpy/releases) dosyalarını `C:\Users\<sen>\Android\scrcpy` klasörüne, `adb` için Android `platform-tools` klasörünü `C:\Users\<sen>\Android\Sdk\platform-tools` içine koy.

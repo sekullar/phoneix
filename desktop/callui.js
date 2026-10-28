@@ -38,7 +38,7 @@ function init(o) {
 
 // st: { state: 'ringing' | 'active', who, speaker, visible }
 function show(st) {
-  tell('call', { state: st.state, who: st.who, speaker: !!st.speaker });
+  tell('call', { state: st.state, who: st.who, speaker: !!st.speaker, voip: !!st.voip });
   if (st.visible) { ensure(); place(); if (!win.isVisible()) win.showInactive(); } else if (alive()) win.hide();
 }
 function ring(on, src) { if (on || alive()) tell('ring', { on: !!on, src: src || '' }); }

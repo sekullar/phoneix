@@ -92,7 +92,12 @@
   .frow { display: flex; gap: 6px; margin: 6px 0; } .frow input { flex: 1; }
   .bar { height: 5px; border-radius: 3px; background: rgba(47,140,255,.15); margin-top: 5px; overflow: hidden; }
   .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--a1), var(--a2)); width: 0; transition: width .25s; }
-  [hidden] { display: none !important; }
+  [hidden], .taboff { display: none !important; }
+  /* sekmeler */
+  .nav { position: sticky; top: 8px; z-index: 3; display: flex; gap: 4px; padding: 4px; border-radius: 16px; background: var(--glass); border: 1px solid rgba(255,255,255,.9); box-shadow: var(--shadow); backdrop-filter: blur(18px) saturate(1.4); animation: rise .6s both; }
+  .nb { flex: 1; padding: 8px 4px; border-radius: 12px; border: 0; background: transparent; box-shadow: none; font-size: 13px; color: var(--dim); }
+  .nb:hover { background: rgba(255,255,255,.6); transform: none; box-shadow: none; }
+  .nb.on { color: #fff; font-weight: 600; background: linear-gradient(135deg, var(--a1), var(--a2)); box-shadow: 0 4px 12px rgba(47,140,255,.35); }
   /* modlar */
   .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .mode { position: relative; overflow: hidden; text-align: left; padding: 14px; border-radius: 16px; background: linear-gradient(150deg, rgba(255,255,255,.95), rgba(214,234,255,.8)); border: 1px solid rgba(255,255,255,.95); }
@@ -120,7 +125,15 @@
     <div><h1>Phoneix</h1><p>Telefonun, bilgisayarında.</p></div>
   </header>
 
-  <section class="card" id="conn">
+  <nav class="nav" id="nav">
+    <button class="nb on" data-t="home">Genel</button>
+    <button class="nb" data-t="modes" data-paired>Modlar</button>
+    <button class="nb" data-t="files" data-paired>Dosyalar</button>
+    <button class="nb" data-t="screen">Ekran</button>
+    <button class="nb" data-t="settings">Ayarlar</button>
+  </nav>
+
+  <section class="card" id="conn" data-tab="home">
     <h2>Telefon</h2>
     <div id="unpaired" class="empty" hidden>
       <div class="phone"><i></i></div>
@@ -149,15 +162,14 @@
         <div class="grow"><div class="big ell" id="pname"></div><div class="dim" id="pseen"></div><div class="dim" id="batt"></div></div>
       </div>
       <div class="btns">
-        <button class="primary" id="test">Test bildirimi</button>
-        <button id="ring">Telefonumu çaldır</button>
+        <button class="primary" id="ring">Telefonumu çaldır</button>
         <button id="repair">Yeniden eşleştir</button>
         <button class="danger" id="unpair">Kaldır</button>
       </div>
     </div>
   </section>
 
-  <section class="card" id="modesCard" hidden>
+  <section class="card" id="modesCard" data-tab="modes" hidden>
     <h2>Telefon modları</h2>
     <div class="modes">
       <button class="mode" id="modeMon"><span class="ico">📈</span><b>Sistem monitörü</b><span>CPU, GPU, RAM ve ağ — telefon ikinci monitör olur</span></button>
@@ -170,7 +182,7 @@
     <div class="dim" style="margin-top:10px">Telefon ön plandaysa mod hemen açılır; değilse bildirimden dokunman gerekir. Telefonda Phoneix ana ekranından da açabilirsin.</div>
   </section>
 
-  <section class="card" id="deckCard" hidden>
+  <section class="card" id="deckCard" data-tab="modes" hidden>
     <h2>Deck tuşları</h2>
     <div class="tabs" id="dtabs"></div>
     <div class="grid" id="dgrid"></div>
@@ -195,7 +207,7 @@
     <label class="sw" style="margin-top:12px" id="dcmdrow"><div>Komut çalıştırma eylemine izin ver<div class="dim">Kapalıyken "Komut çalıştır" tuşları çalışmaz. Yalnızca burada tanımladığın komutlar çalışır.</div></div><input type="checkbox" id="dallow"></label>
   </section>
 
-  <section class="card">
+  <section class="card" data-tab="home">
     <h2>Dynamic Bar</h2>
     <div class="row">
       <span class="dot" id="ddot"></span>
@@ -203,7 +215,7 @@
     </div>
   </section>
 
-  <section class="card" id="mirCard">
+  <section class="card" id="mirCard" data-tab="screen">
     <h2>Ekran yansıtma</h2>
     <div class="row"><span class="dot" id="mdot"></span><div class="grow"><div class="big" id="mtitle" style="font-size:15px"></div><div class="dim" id="msub"></div></div></div>
     <div class="btns"><button class="primary" id="mstart">Ekranı yansıt</button><button id="mstop" hidden>Durdur</button></div>
@@ -227,7 +239,7 @@
     <label class="sw" style="margin-top:10px"><div>Telefonun ekranı kapalı kalsın</div><input type="checkbox" id="moff"></label>
   </section>
 
-  <section class="card" id="filesCard" hidden>
+  <section class="card" id="filesCard" data-tab="files" hidden>
     <h2>Dosyalar</h2>
     <div class="drop" id="drop"><div>Buraya dosya bırak</div><div class="btns" style="justify-content:center;margin-top:8px"><button class="primary" id="pick">Telefona dosya gönder</button></div></div>
     <ul id="xfers" style="margin-top:12px"></ul>
@@ -235,22 +247,27 @@
     <div class="dim ell" id="saveDir" style="margin-top:8px"></div>
   </section>
 
-  <section class="card" id="repCard" hidden>
+  <section class="card" id="repCard" data-tab="home" hidden>
     <h2>Yanıtlanabilir mesajlar</h2>
     <div id="reps"></div>
   </section>
 
-  <section class="card">
+  <section class="card" data-tab="home">
     <h2>Etkinlik</h2>
     <ul id="acts"></ul>
     <div class="dim" id="noact">Henüz bir şey olmadı.</div>
   </section>
 
-  <section class="card">
+  <section class="card" data-tab="settings">
+    <h2>Genel</h2>
     <label class="sw"><div><div>Windows açılınca başlat</div><div class="dim">Tepsiye küçülür, pencere açılmaz.</div></div><input type="checkbox" id="auto"></label>
-    <label class="sw" style="margin-top:14px"><div><div>Panoyu telefonla eşitle</div><div class="dim">Burada kopyaladığın telefonda da yapışır. Telefondan kopyalamak için Hızlı Ayarlar'daki "Panoyu gönder" karosu.</div></div><input type="checkbox" id="clip"></label>
-    <label class="sw" style="margin-top:14px"><div><div>Aramaları Dynamic Bar'da göster</div><div class="dim">Açıkken gelen arama adada Aç / Reddet düğmeleriyle görünür. Kapalıyken (ya da Dynamic Bar yoksa) Phoneix'in kendi küçük arama penceresi açılır. Rahatsız Etmeyin açıkken (telefonda ya da Dynamic Bar'da) arama gösterilmez.</div></div><input type="checkbox" id="callbar"></label>
-    <label class="sw" style="margin-top:14px"><div><div>Aramada bilgisayarda da zil çal</div><div class="dim">Telefon çalarken bilgisayarda da zil sesi duyulur, açınca ya da kapanınca susar.</div></div><input type="checkbox" id="callring"></label>
+    <label class="sw" style="margin-top:14px"><div><div>Panoyu telefonla eşitle</div><div class="dim">Burada kopyaladığın telefonda da yapışır. Telefondan göndermek için Hızlı Ayarlar'daki "Panoyu gönder" karosu.</div></div><input type="checkbox" id="clip"></label>
+  </section>
+
+  <section class="card" data-tab="settings">
+    <h2>Aramalar</h2>
+    <label class="sw"><div><div>Dynamic Bar'da göster</div><div class="dim">Gelen arama adada Aç / Reddet düğmeleriyle görünür. Kapalıyken ya da Dynamic Bar yoksa Phoneix'in kendi küçük arama penceresi açılır. Rahatsız Etmeyin açıkken arama gösterilmez.</div></div><input type="checkbox" id="callbar"></label>
+    <label class="sw" style="margin-top:14px"><div><div>Bilgisayarda da zil çal</div><div class="dim">Açınca ya da kapanınca susar.</div></div><input type="checkbox" id="callring"></label>
     <div id="ringopts" style="margin-top:10px">
       <div class="row" style="gap:8px;align-items:center">
         <select id="ringsound"><option value="app">Phoneix zili</option><option value="phone">Telefonun zil sesi</option><option value="file">Kendi dosyam…</option></select>
@@ -258,7 +275,8 @@
       </div>
       <div class="dim" id="ringinfo" style="margin-top:6px"></div>
     </div>
-    <div class="dim" id="net" style="margin-top:12px"></div>
+    <label class="sw" style="margin-top:14px"><div><div>Müziği duraklat</div><div class="dim">Telefon çalarken bilgisayarda oynayan müzik ya da video durur, arama bitince devam eder (Dynamic Bar gerekir).</div></div><input type="checkbox" id="callpause"></label>
+    <div class="dim" id="net" style="margin-top:16px"></div>
   </section>
 </main>
 <div class="toast" id="toast"></div>
@@ -275,8 +293,20 @@
     if (s < 86400) return Math.floor(s / 3600) + ' sa önce'; return Math.floor(s / 86400) + ' gün önce';
   };
 
+  // sekmeler: her bölüm data-tab ile bir sekmeye bağlı; telefona özel sekmeler eşleşmeden görünmez
+  let tab = 'home';
+  function showTab(t) {
+    tab = t;
+    document.querySelectorAll('.nb').forEach((b) => b.classList.toggle('on', b.dataset.t === t));
+    document.querySelectorAll('main > section[data-tab]').forEach((s) => s.classList.toggle('taboff', s.dataset.tab !== t));
+  }
+  $('nav').onclick = (e) => { const b = e.target.closest('.nb'); if (b) showTab(b.dataset.t); };
+  showTab('home');
+
   function render() {
     if (!st) return;
+    document.querySelectorAll('.nb[data-paired]').forEach((b) => { b.hidden = !st.paired; });
+    if (!st.paired && (tab === 'modes' || tab === 'files')) showTab('home');
     const pairing = showQr && st.pairing;
     $('unpaired').hidden = st.paired || pairing;
     $('pairing').hidden = !pairing;
@@ -289,7 +319,7 @@
     $('ddot').className = 'dot ' + (st.dynbar ? 'ok' : 'warn');
     $('dtitle').textContent = st.dynbar ? 'Dynamic Bar bulundu' : 'Dynamic Bar çalışmıyor';
     $('dsub').textContent = st.dynbar ? 'Telefon bildirimleri adada görünür.' : 'Bildirimler yerine Windows bildirimi gösterilir.';
-    $('auto').checked = !!st.autostart; $('clip').checked = st.clipSync !== false; $('callbar').checked = st.callOnBar !== false; $('callring').checked = st.callRing !== false;
+    $('auto').checked = !!st.autostart; $('clip').checked = st.clipSync !== false; $('callbar').checked = st.callOnBar !== false; $('callring').checked = st.callRing !== false; $('callpause').checked = st.callPauseMedia !== false;
     $('ringsound').value = st.ringSound || 'app'; $('ringpick').hidden = st.ringSound !== 'file'; $('ringopts').style.display = st.callRing !== false ? '' : 'none';
     $('ringinfo').textContent = st.ringSound === 'file' ? (st.ringFile ? 'Seçili: ' + st.ringFile : 'Henüz dosya seçilmedi, Phoneix zili çalar.')
       : st.ringSound === 'phone' ? (st.phoneRing ? 'Telefonun zil sesi kullanılıyor.' : 'Telefonun zil sesi henüz alınmadı, o zamana kadar Phoneix zili çalar.') : '';
@@ -436,7 +466,6 @@
   $('repair').onclick = startPair;
   $('cancel').onclick = async () => { showQr = false; phoneix.cancel(); st = await phoneix.state(); render(); };
   $('unpair').onclick = () => { phoneix.unpair(); toast('Eşleştirme kaldırıldı'); };
-  $('test').onclick = async () => { const via = await phoneix.test(); toast(via === 'bar' ? 'Dynamic Bar\'a gönderildi' : 'Windows bildirimi gösterildi'); };
   const sent = (r) => toast(!r ? '' : r.ok ? (r.online ? r.files + ' dosya gönderiliyor' : 'Sıraya alındı: telefon bağlanınca iner') : r.error);
   $('pick').onclick = async () => { const r = await phoneix.pickFiles(); if (r) sent(r); };
   $('openDir').onclick = () => phoneix.openFolder();
@@ -454,6 +483,7 @@
   $('ringsound').onchange = (e) => phoneix.callOpts({ sound: e.target.value });
   $('ringpick').onclick = async () => { const r = await phoneix.ringPick(); if (r && r.error) $('ringinfo').textContent = r.error; };
   $('ringtest').onclick = () => phoneix.ringTest();
+  $('callpause').onchange = (e) => phoneix.callOpts({ pauseMedia: e.target.checked });
   $('callring').onchange = (e) => phoneix.callOpts({ ring: e.target.checked });
   $('mstart').onclick = async () => { $('mstart').disabled = true; $('mstart').classList.add('busy'); const r = await phoneix.mirrorStart(); $('mstart').classList.remove('busy'); $('mstart').disabled = false; toast(r && r.ok ? 'Ekran açıldı' : (r && r.error) || 'Başlatılamadı'); };
   $('wpair').onclick = async () => { $('wpair').disabled = true; const r = await phoneix.mirrorPair($('wpa').value, $('wpc').value); $('wpair').disabled = false; toast(r.ok ? r.text : r.error); if (r.ok) $('wpc').value = ''; };

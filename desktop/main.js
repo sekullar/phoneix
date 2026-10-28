@@ -13,6 +13,19 @@ const sensor = require('./sensor');
 const callui = require('./callui');
 sensor.init({ userData: () => app.getPath('userData'), log: (m) => log(m) });
 const http = require('http'), crypto = require('crypto');
+const { execFile } = require('child_process');
+
+// Dizüstüyse bilgisayarın pili (telefonda gösterilir). Win32_Battery masaüstünde boş döner: o zaman hiç bildirilmez.
+// Ping hızlı yanıtlansın diye değer arka planda yenilenir, istek önbelleği okur.
+let pcBat = null;
+function refreshPcBat() {
+  if (process.platform !== 'win32') return;
+  execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', "$b = Get-CimInstance Win32_Battery | Select-Object -First 1; if ($b) { Write-Output ($b.EstimatedChargeRemaining.ToString() + ' ' + $b.BatteryStatus) }"],
+    { windowsHide: true, timeout: 10000 }, (err, out) => {
+      const m = !err && /^(\d{1,3}) (\d+)/.exec(String(out || '').trim());
+      pcBat = m ? { level: Math.min(100, +m[1]), charging: [2, 3, 6, 7, 8, 9].includes(+m[2]) } : null;
+    });
+}
 
 if (!app.requestSingleInstanceLock()) app.quit();
 const alive = (w) => w && !w.isDestroyed();
@@ -20,7 +33,7 @@ let win = null, tray = null, quitting = false, activity = [];
 
 // ---------- kalıcı veri: userData/store.json (anahtar Windows DPAPI ile şifreli) ----------
 const storeFile = () => path.join(app.getPath('userData'), 'store.json');
-let store = { key: '', name: '', lastMsg: 0, saveDir: '', clipSync: true, mirrorAudio: true, mirrorOff: false, callOnBar: true, callRing: true, ringSound: 'app', ringFile: '' };
+let store = { key: '', name: '', lastMsg: 0, saveDir: '', clipSync: true, mirrorAudio: true, mirrorOff: false, callOnBar: true, callRing: true, callPauseMedia: true, ringSound: 'app', ringFile: '' };
 const replies = new Map(); // yanıtlanabilir bildirimler: id -> {app, title, text}
 let call = { state: 'idle', who: '', speaker: false };
 let phone = { secure: false, adbwifi: false, battery: -1, charging: false, t: 0, low: false }, lastClip = '', ringing = false;
@@ -73,7 +86,12 @@ function setPorts(p) {
 async function onMessage(m, first, gone) {
   store.lastMsg = Date.now();
   // Telefondaki monitör / deck modu: sık gelen istekler arayüzü yeniden çizdirmez
-  if (m.type === 'ping') return { ok: true };
+  if (m.type === 'ping') return pcBat ? { ok: true, bat: pcBat } : { ok: true };
+  if (m.type === 'otp') { // SMS doğrulama kodu: panoya kopyalanır, kod günlüğe yazılmaz
+    const code = typeof m.code === 'string' && /^\d{4,8}$/.test(m.code) ? m.code : '';
+    if (code) { lastClip = code; clipboard.writeText(code); note('otp', 'Doğrulama kodu panoya kopyalandı'); forward({ title: 'Doğrulama kodu', text: code + ' · panoya kopyalandı', icon: '🔑', ttl: 6 }); }
+    return { ok: !!code };
+  }
   if (m.type === 'stats') return { stats: await stats.get() };
   if (m.type === 'deck') return { deck: await deck.layout() };
   if (m.type === 'press') return typeof m.id === 'string' ? deck.press(m.id.slice(0, 20)) : { ok: false, error: 'Geçersiz tuş' };
@@ -139,7 +157,7 @@ async function state() {
   const l = dynbarLink(), s = server.status();
   return {
     paired: !!store.key, name: store.name, lastMsg: store.lastMsg, listening: s.listening, port: s.port, pairing: s.pairing, ips: s.ips,
-    dynbar: l ? await dynbarAlive(l) : false, mirror: await mirror.status(), phoneIp: server.status().lastIp, mirrorAudio: store.mirrorAudio !== false, mirrorReconnect: store.mirrorReconnect !== false, mirrorOff: !!store.mirrorOff, transfers: files.list(), replies: [...replies.values()].reverse().slice(0, 5), phone: phone.t ? { battery: phone.battery, charging: phone.charging, t: phone.t } : null, clipSync: store.clipSync, callOnBar: store.callOnBar !== false, callRing: store.callRing !== false, ringSound: store.ringSound || 'app', ringFile: store.ringFile ? path.basename(store.ringFile) : '', phoneRing: fs.existsSync(phoneRingPath()), ringing, saveDir: saveDir(), outPending: files.pendingCount(), autostart: app.getLoginItemSettings().openAtLogin, activity: activity.slice(0, 12)
+    dynbar: l ? await dynbarAlive(l) : false, mirror: await mirror.status(), phoneIp: server.status().lastIp, mirrorAudio: store.mirrorAudio !== false, mirrorReconnect: store.mirrorReconnect !== false, mirrorOff: !!store.mirrorOff, transfers: files.list(), replies: [...replies.values()].reverse().slice(0, 5), phone: phone.t ? { battery: phone.battery, charging: phone.charging, t: phone.t } : null, clipSync: store.clipSync, callOnBar: store.callOnBar !== false, callRing: store.callRing !== false, callPauseMedia: store.callPauseMedia !== false, ringSound: store.ringSound || 'app', ringFile: store.ringFile ? path.basename(store.ringFile) : '', phoneRing: fs.existsSync(phoneRingPath()), ringing, saveDir: saveDir(), outPending: files.pendingCount(), autostart: app.getLoginItemSettings().openAtLogin, activity: activity.slice(0, 12)
   };
 }
 let pushT = null;
@@ -150,7 +168,10 @@ ipcMain.handle('state', () => state());
 // ---------- pil, "telefonumu çaldır", pano eşitleme ----------
 function batteryWatch() { // pil azalınca bir kez haber ver; şarja takılınca veya yükselince yeniden silahlanır
   if (phone.battery > 30 || phone.charging) phone.low = false;
-  else if (phone.battery <= 15 && !phone.low) { phone.low = true; forward({ title: 'Telefonun pili azaldı', text: '%' + phone.battery + ' kaldı', icon: '🪫' }); }
+  else if (phone.battery <= 15 && !phone.low) { phone.low = true; forward({ title: 'Telefonun pili azaldı', text: '%' + phone.battery + ' kaldı, şarja tak', icon: '🪫', mood: 'lowbat', ttl: 6 }); }
+  if (!phone.seen) { phone.seen = true; phone.full = phone.charging && phone.battery >= 100; } // uygulama açılırken dolu telefon için kutlama yapma
+  if (phone.charging && phone.battery >= 100 && !phone.full) { phone.full = true; forward({ title: 'Telefon şarj oldu', text: 'Şarjı çıkarabilirsin', icon: '🔋', mood: 'party', ttl: 5 }); }
+  if (!phone.charging || phone.battery < 95) phone.full = false;
   push();
 }
 // Yansıtmayı çerçeveli başlatır: telefon biçimli bir pencere açılır ("Bağlanılıyor"), bağlanınca scrcpy ekranı onun içine oturur (frame.js)
@@ -225,7 +246,7 @@ ipcMain.handle('ring:pick', async () => {
   store.ringFile = r.filePaths[0]; store.ringSound = 'file'; save(); push(); return { ok: true };
 });
 ipcMain.on('ring:test', () => { callui.ring(true, ringSrc()); setTimeout(() => callui.ring(false), 4000); });
-ipcMain.on('callopts', (_e, o) => { if (o && typeof o === 'object') { if (typeof o.onBar === 'boolean') store.callOnBar = o.onBar; if (typeof o.ring === 'boolean') store.callRing = o.ring; if (['app', 'file', 'phone'].includes(o.sound)) { store.ringSound = o.sound; if (o.sound === 'phone') remote.push({ type: 'getring' }); } save(); push(); } });
+ipcMain.on('callopts', (_e, o) => { if (o && typeof o === 'object') { if (typeof o.onBar === 'boolean') store.callOnBar = o.onBar; if (typeof o.ring === 'boolean') store.callRing = o.ring; if (typeof o.pauseMedia === 'boolean') store.callPauseMedia = o.pauseMedia; if (['app', 'file', 'phone'].includes(o.sound)) { store.ringSound = o.sound; if (o.sound === 'phone') remote.push({ type: 'getring' }); } save(); push(); } });
 // Windows panosu: metin değişince telefona gönder. Parola yöneticilerinin "izleme dışı" işaretlediği içerik atlanır. Başlangıçtaki pano gönderilmez.
 let clipSeen = false;
 setInterval(() => {
@@ -285,34 +306,53 @@ function sendReply(id, text) {
   if (!info || !t) return false;
   remote.push({ type: 'reply', id, text: t }); note('reply', 'Yanıt gönderiliyor: ' + info.title); return true;
 }
+let lastBarAct = { a: '', t: 0 };
 function onBarAction(action, data, text) {
   if (typeof action !== 'string' || typeof data !== 'string') return;
   if (data.startsWith('reply:') && action === 'reply') {
     if (typeof text === 'string' && text.trim()) sendReply(data.slice(6), text); // adada yazılan yanıt
     else showWindow(); // adada yazılamadı: uygulamadaki yanıt kutusu
   } else if (data === 'call' && ['answer', 'reject', 'hangup'].includes(action)) {
+    const nowT = Date.now(); if (lastBarAct.a === action && nowT - lastBarAct.t < 800) return; lastBarAct = { a: action, t: nowT }; // adadan aynı düğme iki kez gelebiliyor
     if (action === 'reject') call.rejected = true;
     log('arama düğmesi:', action);
     remote.push({ type: 'call', action });
   }
 }
 // Rahatsız Etmeyin: telefonda açıksa (mesajla gelir) ya da Dynamic Bar'da DND / sessiz saat / odak varsa arama bilgisayarda gösterilmez, çalmaz
+async function dynbarStatus() { // Dynamic Bar'ın durumu (rahatsız etme, oyun, çalan medya); çalışmıyorsa null
+  const l = dynbarLink();
+  if (!l) return null;
+  try {
+    const r = await fetch(`http://127.0.0.1:${l.port}/status`, { headers: l.token ? { Authorization: 'Bearer ' + l.token } : {}, signal: AbortSignal.timeout(800) });
+    return await r.json();
+  } catch { return null; }
+}
 async function dndNow(m) {
   if (m.dnd === true) return 'telefon';
-  const l = dynbarLink();
-  if (l) {
-    try {
-      const r = await fetch(`http://127.0.0.1:${l.port}/status`, { headers: l.token ? { Authorization: 'Bearer ' + l.token } : {}, signal: AbortSignal.timeout(800) });
-      const s = await r.json();
-      if (s && (s.dnd || s.quiet || s.focus)) return 'Dynamic Bar';
-    } catch {}
-  }
+  const s = await dynbarStatus();
+  if (s && (s.dnd || s.quiet || s.focus || s.game)) return s.game ? 'oyun modu' : 'Dynamic Bar';
   return '';
+}
+// Arama sırasında bilgisayarda çalan müzik/video duraklar, arama bitince (yalnızca biz duraklattıysak ve hâlâ duraklıysa) devam eder
+let callPaused = false;
+async function pauseMediaForCall() {
+  if (store.callPauseMedia === false || callPaused) return;
+  const s = await dynbarStatus();
+  if (s && s.media && s.media.status === 'Playing') { callPaused = true; deck.media('playpause'); log('arama: müzik duraklatıldı'); }
+}
+function resumeMediaAfterCall() {
+  if (!callPaused) return;
+  callPaused = false;
+  setTimeout(async () => {
+    const s = await dynbarStatus();
+    if (s && s.media && s.media.status === 'Paused') { deck.media('playpause'); log('arama: müzik devam ettirildi'); }
+  }, 1200);
 }
 let lastCallKey = '', lastCallAt = 0;
 async function onCall(m) { // telefon arama durumunu bildirir: Dynamic Bar'da ya da Phoneix'in kendi penceresinde Aç / Reddet / Hoparlör / Kapat
   const st = m.state, who = typeof m.who === 'string' && m.who.trim() ? m.who.trim().slice(0, 60) : st === 'ringing' ? 'Gelen arama' : 'Bilinmeyen numara', speaker = m.speaker === true;
-  const key = st + '|' + who + '|' + speaker;
+  const voip = m.voip === true, key = st + '|' + who + '|' + speaker + '|' + voip;
   if (key === lastCallKey && Date.now() - lastCallAt < 2000) return; // Samsung görüşme başında aynı durumu birkaç kez bildirir
   lastCallKey = key; lastCallAt = Date.now();
   log('arama', st, who, speaker ? '(hoparlör)' : '');
@@ -322,7 +362,7 @@ async function onCall(m) { // telefon arama durumunu bildirir: Dynamic Bar'da ya
   if (st === 'ended') {
     const ringing = call.state === 'ringing', rejected = !!call.rejected, talked = call.state === 'active', was = call.who, hidden = call.hidden;
     call = { state: 'idle', who: '', speaker: false };
-    callui.hide(); bar('/dismiss', { key: 'call' });
+    callui.hide(); bar('/dismiss', { key: 'call' }); resumeMediaAfterCall();
     const missed = ringing && !rejected;
     if (missed) { note('call', 'Cevapsız arama: ' + was); if (!hidden) fw({ title: 'Cevapsız arama', text: was, icon: '📵', mood: 'sad', ttl: 8 }); }
     else if (!hidden && (rejected || talked) && store.callOnBar !== false) { // kapatma maskotu: kısa bir "tamam, kapandı" kartı
@@ -342,15 +382,16 @@ async function onCall(m) { // telefon arama durumunu bildirir: Dynamic Bar'da ya
   else { if (call.state !== 'active') note('call', 'Görüşme: ' + who); call = { state: 'active', who, speaker, hidden }; }
 
   if (hidden) { callui.hide(); return push(); }
+  if (first) pauseMediaForCall();
   const l = dynbarLink(), useBar = store.callOnBar !== false && !!l && await dynbarAlive(l);
   callui.ring(st === 'ringing' && store.callRing !== false, ringSrc());
   if (useBar) {
-    callui.show({ state: st, who, speaker, visible: false });
-    if (st === 'ringing') fw({ ...base, title: who, text: 'Arıyor…', mood: 'call', ttl: 60, actions: apiPort ? [{ id: 'answer', label: 'Aç', keep: true }, { id: 'reject', label: 'Reddet', keep: true }] : undefined });
+    callui.show({ state: st, who, speaker, voip, visible: false });
+    if (st === 'ringing') fw({ ...base, title: who, text: 'Arıyor…', mood: 'call', ttl: 60, actions: apiPort ? (voip ? [{ id: 'reject', label: 'Reddet', keep: true }] : [{ id: 'answer', label: 'Aç', keep: true }, { id: 'reject', label: 'Reddet', keep: true }]) : undefined });
     else fw({ ...base, title: who, text: 'Görüşmede', mood: 'talk', ttl: 60, actions: apiPort ? [{ id: 'hangup', label: 'Kapat', keep: true }] : undefined });
   } else {
     bar('/dismiss', { key: 'call' });
-    callui.show({ state: st, who, speaker, visible: true });
+    callui.show({ state: st, who, speaker, voip, visible: true });
   }
   push();
 }
@@ -448,6 +489,7 @@ app.on('window-all-closed', (e) => e.preventDefault());
 app.on('will-quit', () => { callui.destroy(); mirror.stop(); stats.stop(); deck.stop(); server.destroy(); removeLink(); try { api.close(); } catch {} });
 app.whenReady().then(() => {
   load();
+  refreshPcBat(); setInterval(refreshPcBat, 60000);
   remote.onWake(files.wake);
   remote.onTake((c) => log('komut telefona gitti:', c.map((x) => x.type + (x.action ? ':' + x.action : '')).join(',')));
   deck.init({

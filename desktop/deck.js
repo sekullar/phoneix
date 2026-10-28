@@ -130,4 +130,4 @@ async function press(id) {
 }
 function stop() { if (helper) { try { helper.kill(); } catch {} helper = null; } }
 
-module.exports = { init: (c) => { ctx = { ...ctx, ...c }; }, get: () => load(), save, layout, press, stop, parseKeys };
+module.exports = { init: (c) => { ctx = { ...ctx, ...c }; }, get: () => load(), save, layout, press, stop, parseKeys, media: (n) => { const vk = MEDIA[n]; if (vk) sendKeys([vk]); } };

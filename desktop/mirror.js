@@ -139,7 +139,7 @@ const sizes = new Map();
 async function phoneSize(serial) { // adb shell wm size → "Physical size: 1080x2340" (varsa "Override size" önceliklidir)
   if (sizes.has(serial)) return sizes.get(serial);
   const r = await run(adbPath(find()), ['-s', serial, 'shell', 'wm', 'size'], 5000);
-  const m = [...r.out.matchAll(/(Override|Physical) size:s*(d+)x(d+)/g)].pop();
+  const m = [...r.out.matchAll(/(Override|Physical) size:\s*(\d+)x(\d+)/g)].pop();
   const sz = m ? { w: +m[2], h: +m[3] } : null;
   if (sz) sizes.set(serial, sz); return sz;
 }

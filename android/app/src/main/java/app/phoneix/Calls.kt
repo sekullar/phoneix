@@ -30,6 +30,7 @@ object Calls {
     // Android dinleyiciyi yalnızca zayıf referansla tutar: burada saklanmazsa çöp toplayıcı siler ve arama olayları sessizce kesilir
     private var keepAlive: Any? = null
     @Volatile private var state = "idle"
+    @Volatile private var voip = false // WhatsApp gibi uygulama aramaları: bilgisayardan yanıtlanamaz (Android arka plandan arama ekranı açtırmıyor), yalnızca reddedilir
     @Volatile private var who = ""
     private var answerPi: PendingIntent? = null
     private var declinePi: PendingIntent? = null
@@ -67,7 +68,7 @@ object Calls {
         if (next == state) return
         val was = state
         state = next
-        if (next == "idle") { report("ended"); who = ""; answerPi = null; declinePi = null; hangPi = null; lastSent = ""; return }
+        if (next == "idle") { report("ended"); who = ""; answerPi = null; declinePi = null; hangPi = null; lastSent = ""; voip = false; return }
         if (next == "ringing" && was == "idle") main.postDelayed({ if (state == "ringing") report("ringing") }, 250) // arayan adı bildirimi birazdan gelir
         else report(next)
     }
@@ -78,6 +79,8 @@ object Calls {
         val n = sbn.notification
         val title = n.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
         if (title.isNotEmpty()) who = title
+        val pkg = sbn.packageName
+        voip = !(pkg.contains("incallui") || pkg.contains("dialer") || pkg.contains("telecom") || pkg.contains("phone") || pkg.contains("contacts"))
         if (Build.VERSION.SDK_INT >= 31) {
             answerPi = n.extras.getParcelable(Notification.EXTRA_ANSWER_INTENT, PendingIntent::class.java) ?: answerPi
             declinePi = n.extras.getParcelable(Notification.EXTRA_DECLINE_INTENT, PendingIntent::class.java) ?: declinePi
@@ -102,7 +105,7 @@ object Calls {
         io.execute {
             val store = Store(ctx)
             val k = store.key ?: return@execute
-            val msg = JSONObject().put("type", "call").put("state", st).put("who", who).put("speaker", speaker()).put("dnd", dndOn())
+            val msg = JSONObject().put("type", "call").put("state", st).put("who", who).put("speaker", speaker()).put("dnd", dndOn()).put("voip", voip)
             Link.send(k, store.hosts, store.port, msg, 6000)
         }
     }
@@ -116,6 +119,22 @@ object Calls {
     private fun speaker(): Boolean = try { (app.getSystemService(Context.AUDIO_SERVICE) as AudioManager).isSpeakerphoneOn } catch (e: Exception) { false }
 
     /** Bilgisayardan gelen komut: answer | reject | hangup. */
+    /** Bildirim düğmesini tetikler. Android 14+ arka plandan ekran açmayı engeller (WhatsApp'ın yanıtla düğmesi arama ekranını açar): izin istenir. */
+    private fun fire(pi: PendingIntent?) {
+        if (pi == null) return
+        try {
+            if (Build.VERSION.SDK_INT >= 34) {
+                val o = android.app.ActivityOptions.makeBasic().setPendingIntentBackgroundActivityStartMode(android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
+                pi.send(app, 0, null, null, null, null, o.toBundle())
+            } else pi.send()
+        } catch (e: Exception) { /* yok */ }
+    }
+
+    /** Komuttan sonra durum 0,7 sn içinde değişmediyse (sistem çağrısı sessizce yok sayıldı) yedek yolu dener. */
+    private fun verify(from: String, fallback: () -> Unit) {
+        io.execute { try { Thread.sleep(700) } catch (e: InterruptedException) { return@execute }; if (state == from) fallback() }
+    }
+
     fun command(ctx: Context, action: String) {
         app = ctx.applicationContext
         val tm = app.getSystemService(TelecomManager::class.java)
@@ -123,12 +142,14 @@ object Calls {
             "answer" -> {
                 var done = false
                 if (hasAnswerPermission(app)) try { @Suppress("DEPRECATION") tm.acceptRingingCall(); done = true } catch (e: Exception) { /* bildirim düğmesine düş */ }
-                if (!done) try { answerPi?.send() } catch (e: Exception) { /* yok */ }
+                if (!done) fire(answerPi)
+                else verify("ringing") { fire(answerPi) } // acceptRingingCall bazı telefonlarda sessizce işe yaramaz
             }
             "reject", "hangup" -> {
                 var done = false
                 if (hasAnswerPermission(app)) try { @Suppress("DEPRECATION") done = tm.endCall() } catch (e: Exception) { /* bildirim düğmesine düş */ }
-                if (!done) try { (if (action == "reject") declinePi ?: hangPi else hangPi ?: declinePi)?.send() } catch (e: Exception) { /* yok */ }
+                val viaNotification: () -> Unit = { fire(if (action == "reject") declinePi ?: hangPi else hangPi ?: declinePi) }
+                if (!done) viaNotification() else verify(state, viaNotification)
             }
         }
     }

@@ -22,7 +22,7 @@
         android:allowBackup="false"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.Phoneix">
-        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop">
+        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -34,7 +34,7 @@
                 <data android:scheme="phoneix" android:host="pair" />
             </intent-filter>
         </activity>
-        <activity android:name=".ShareActivity" android:exported="true" android:label="Phoneix" android:excludeFromRecents="true">
+        <activity android:name=".ShareActivity" android:exported="true" android:label="Phoneix" android:excludeFromRecents="true" android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -56,7 +56,7 @@
         </service>
         <receiver android:name=".ReplyTestReceiver" android:exported="false" />
         <receiver android:name=".DebugShot" android:exported="true" />
-        <activity android:name=".AppsActivity" android:exported="false" />
+        <activity android:name=".AppsActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".ModeActivity" android:exported="false" android:launchMode="singleTop" android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize" />
         <service android:name=".NotificationService" android:exported="true"
             android:label="Phoneix"

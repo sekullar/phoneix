@@ -38,14 +38,15 @@ class MainActivity : Activity() {
     private lateinit var pcState: TextView
     private lateinit var power: LinearLayout
     private var pcOnline = false
-    private lateinit var test: Button
+    private lateinit var tools: LinearLayout
+    private lateinit var permBox: LinearLayout
+    private lateinit var permOk: TextView
+    private lateinit var pairBtn: Button
+    private lateinit var rePair: Button
     private lateinit var unpair: Button
     private lateinit var access: Button
-    private lateinit var upload: Button
     private lateinit var apps: Button
     private lateinit var battery: Button
-    private lateinit var modeMon: Button
-    private lateinit var modeDeck: Button
     private var askedAccess = false
     private var askedBattery = false
     private var askedNotif = false
@@ -89,7 +90,16 @@ class MainActivity : Activity() {
                 true
             }
         })
-        titles.addView(TextView(this).apply { text = "Telefonun, bilgisayarında."; textSize = 13f; setTextColor(Ui.DIM) })
+        titles.addView(TextView(this).apply {
+            text = "Telefonun, bilgisayarında."; textSize = 13f; setTextColor(Ui.DIM)
+            // Gizli geliştirici menüsü: alt başlığa uzun bas (test bildirimleri ana ekranı kalabalıklaştırmasın)
+            setOnLongClickListener {
+                AlertDialog.Builder(this@MainActivity).setTitle("Geliştirici")
+                    .setItems(arrayOf("Bilgisayara test bildirimi gönder", "Telefona yanıt testi bildirimi düşür")) { _, i -> if (i == 0) { if (store.paired) sendTest() } else ReplyTestReceiver.post(this@MainActivity) }
+                    .show()
+                true
+            }
+        })
         head.addView(titles)
         root.addView(head); parts.add(head)
 
@@ -112,47 +122,66 @@ class MainActivity : Activity() {
             }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
         }
 
-        val conn = card("Bağlantı")
-        status = TextView(this).apply { textSize = 15f; setTextColor(Ui.INK); setPadding(0, 0, 0, dp(6)) }
+        // Bağlantı: eşleşmişken yalnızca durum; eşleştirme düğmesi ve eksik izinler yalnızca gerektiğinde görünür
+        val conn = card("")
+        status = TextView(this).apply { textSize = 18f; setTextColor(Ui.INK); paint.isFakeBoldText = true; setPadding(0, 0, 0, dp(2)) }
         conn.addView(status)
-        pcState = TextView(this).apply { textSize = 14f; setTextColor(Ui.DIM); setPadding(0, 0, 0, dp(6)) }
+        pcState = TextView(this).apply { textSize = 14f; setTextColor(Ui.DIM) }
         conn.addView(pcState)
-        btn(conn, "QR ile eşleştir", true) { scanQr() }
-        test = btn(conn, "Test bildirimi gönder") { sendTest() }
-        unpair = btn(conn, "Eşleştirmeyi kaldır") { store.clear(); refresh("Eşleştirme kaldırıldı") }
+        pairBtn = btn(conn, "QR ile eşleştir", true) { scanQr() }
+        permBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        conn.addView(permBox, LinearLayout.LayoutParams(-1, -2))
+        permOk = TextView(this).apply { textSize = 12.5f; setTextColor(Ui.DIM); setPadding(0, dp(8), 0, 0) }
+        permBox.addView(permOk)
+        access = btn(permBox, "Bildirim erişimi ver") { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+        battery = btn(permBox, "Pil kısıtlamasını kaldır") { askBattery() }
 
+        // Bilgisayar: tüm düğmeler aynı yükseklikte, "Kapat" ayrı satırda
         power = card("Bilgisayar")
-        val rowTop = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        val rowBot = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        fun prow() = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         fun pw(row: LinearLayout, label: String, id: String, confirm: String = "") {
             row.addView(Ui.button(this, label, false).apply {
-                textSize = 13f; isAllCaps = false; tag = "pw"
+                textSize = 14f; isAllCaps = false; maxLines = 1; tag = "pw"
                 setOnClickListener { powerPress(this, label, id, confirm) }
-            }, LinearLayout.LayoutParams(0, -2, 1f).apply { setMargins(dp(3), dp(4), dp(3), dp(4)) })
+            }, LinearLayout.LayoutParams(0, dp(50), 1f).apply { setMargins(dp(3), dp(4), dp(3), dp(4)) })
         }
-        pw(rowTop, "🔒 Kilitle", "pw_lock"); pw(rowTop, "🌙 Uyku", "pw_sleep", "Bilgisayar uykuya alınsın mı?"); pw(rowTop, "🖥️ Ekranı kapat", "pw_screen")
-        pw(rowBot, "🔄 Yeniden başlat", "pw_restart", "Bilgisayar yeniden başlatılsın mı? Kaydedilmemiş işler kaybolabilir."); pw(rowBot, "🔌 Kapat", "pw_shutdown", "Bilgisayar kapatılsın mı? Kaydedilmemiş işler kaybolabilir.")
-        power.addView(rowTop, LinearLayout.LayoutParams(-1, -2)); power.addView(rowBot, LinearLayout.LayoutParams(-1, -2))
+        val pr1 = prow(); val pr2 = prow(); val pr3 = prow()
+        pw(pr1, "🔒 Kilitle", "pw_lock"); pw(pr1, "🌙 Uyku", "pw_sleep", "Bilgisayar uykuya alınsın mı?")
+        pw(pr2, "🖥️ Ekranı kapat", "pw_screen"); pw(pr2, "🔄 Yeniden başlat", "pw_restart", "Bilgisayar yeniden başlatılsın mı? Kaydedilmemiş işler kaybolabilir.")
+        pw(pr3, "🔌 Kapat", "pw_shutdown", "Bilgisayar kapatılsın mı? Kaydedilmemiş işler kaybolabilir.")
+        for (r in listOf(pr1, pr2, pr3)) power.addView(r, LinearLayout.LayoutParams(-1, -2))
 
-        val modes = card("Modlar")
-        modes.addView(TextView(this).apply { text = "Telefonu ikinci ekran yap: yatay, tam ekran."; textSize = 12.5f; setTextColor(Ui.DIM) })
-        modeMon = btn(modes, "📈  Sistem monitörü", true) { startActivity(Intent(this, ModeActivity::class.java).putExtra("mode", "monitor")) }
-        modeDeck = btn(modes, "🎛️  Deck") { startActivity(Intent(this, ModeActivity::class.java).putExtra("mode", "deck")) }
-
-        val xfer = card("Aktarım")
-        upload = btn(xfer, "Bilgisayara dosya gönder") {
+        // Araçlar: ikinci ekran modları yan yana, dosya gönderme altında
+        tools = card("Araçlar")
+        val tr = prow()
+        fun half(label: String, f: () -> Unit) = tr.addView(Ui.button(this, label, false).apply { textSize = 14f; isAllCaps = false; maxLines = 1; setOnClickListener { f() } },
+            LinearLayout.LayoutParams(0, dp(50), 1f).apply { setMargins(dp(3), dp(4), dp(3), dp(4)) })
+        half("📈 Monitör") { startActivity(Intent(this, ModeActivity::class.java).putExtra("mode", "monitor")) }
+        half("🎛️ Deck") { startActivity(Intent(this, ModeActivity::class.java).putExtra("mode", "deck")) }
+        tools.addView(tr, LinearLayout.LayoutParams(-1, -2))
+        btn(tools, "Bilgisayara dosya gönder") {
             startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*").putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true), 7)
         }
-        btn(xfer, "Yanıt testi (telefona bildirim düşür)") { ReplyTestReceiver.post(this) }
-
-        val perms = card("İzinler")
-        access = btn(perms, "Bildirim erişimi ver") { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
-        battery = btn(perms, "Pil kısıtlamasını kaldır") { askBattery() }
-        apps = btn(perms, "Hangi uygulamalar?") { startActivity(Intent(this, AppsActivity::class.java)) }
 
         val prefs = card("Ayarlar")
+        fun group(t: String) = prefs.addView(TextView(this).apply { text = t; textSize = 13f; setTextColor(Ui.INK); paint.isFakeBoldText = true },
+            LinearLayout.LayoutParams(-1, -2).apply { topMargin = if (prefs.childCount <= 1) dp(2) else dp(18) })
+        // başlık + açıklama solda, anahtar sağda; satırın her yerine dokunmak anahtarı çevirir
+        fun opt(t: String, sub: String, checked: Boolean, f: (Boolean) -> Unit) {
+            val s = Switch(this).apply {
+                isChecked = checked; setOnCheckedChangeListener { _, on -> f(on) }
+                thumbTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(Ui.A1, 0xFFFFFFFF.toInt()))
+                trackTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(0x662F8CFF, if (Ui.dark) 0x55FFFFFF else 0x55809AB5))
+            }
+            val tx = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            tx.addView(TextView(this).apply { text = t; textSize = 15f; setTextColor(Ui.INK) })
+            if (sub.isNotEmpty()) tx.addView(TextView(this).apply { text = sub; textSize = 12f; setTextColor(Ui.DIM) })
+            val line = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setOnClickListener { s.toggle() } }
+            line.addView(tx, LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(12) }); line.addView(s)
+            prefs.addView(line, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
+        }
+        group("Görünüm")
         // tema seçimi: Koyu (varsayılan) / Açık / Sistem; seçince ekran yeniden kurulur
-        prefs.addView(TextView(this).apply { text = "Tema"; textSize = 15f; setTextColor(Ui.INK) })
         val themeRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         listOf("dark" to "🌙  Koyu", "light" to "☀️  Açık", "system" to "Sistem").forEach { (id, label) ->
             val on = store.theme == id
@@ -166,13 +195,20 @@ class MainActivity : Activity() {
             }, LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(6) })
         }
         prefs.addView(themeRow, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8); bottomMargin = dp(4) })
-        sw(prefs, "Bildirim metnini gizle (yalnızca uygulama adı gider)", store.hideText) { store.hideText = it }
-        sw(prefs, "Sessiz bildirimleri gönderme (ör. WhatsApp \"bağlantınız kontrol ediliyor\")", store.skipSilent) { store.skipSilent = it }
-        sw(prefs, "Panoyu bilgisayarla eşitle", store.clipSync) { store.clipSync = it }
-        prefs.addView(TextView(this).apply {
-            text = "Bilgisayarda kopyaladığın kendiliğinden telefona gelir. Telefonda kopyaladığını göndermek için Hızlı Ayarlar'daki \"Panoyu gönder\" karosuna dokun (ya da Paylaş → Phoneix)."
-            textSize = 12f; setTextColor(Ui.DIM); setPadding(0, dp(8), 0, 0)
-        })
+        group("Bildirimler")
+        apps = btn(prefs, "Aktarılacak uygulamalar") { startActivity(Intent(this, AppsActivity::class.java)) }
+        opt("Metni gizle", "Bilgisayara yalnızca uygulama adı gider", store.hideText) { store.hideText = it }
+        opt("Sessiz bildirimleri atla", "Düşük önemli bildirimler (ör. WhatsApp \"bağlantınız kontrol ediliyor\") gitmez", store.skipSilent) { store.skipSilent = it }
+        opt("Bilgisayara ulaşılamayınca haber ver", "2 dakika sonra bildirim gelir", store.pcAlert) { store.pcAlert = it }
+        group("Pano ve kodlar")
+        opt("Panoyu eşitle", "Bilgisayarda kopyaladığın telefona gelir. Telefondan göndermek için Hızlı Ayarlar'daki \"Panoyu gönder\" karosunu ya da Paylaş → Phoneix'i kullan", store.clipSync) { store.clipSync = it }
+        opt("SMS doğrulama kodlarını kopyala", "Gelen kod bilgisayarın panosuna düşer", store.otpCopy) { store.otpCopy = it }
+        group("Bağlantı")
+        rePair = btn(prefs, "Yeniden eşleştir (QR)") { scanQr() }
+        unpair = btn(prefs, "Eşleştirmeyi kaldır") {
+            AlertDialog.Builder(this).setTitle("Eşleştirmeyi kaldır").setMessage("Bilgisayarla bağlantı kesilir. Tekrar eşleşmek için QR gerekir.")
+                .setPositiveButton("Kaldır") { _, _ -> store.clear(); refresh("Eşleştirme kaldırıldı") }.setNegativeButton("Vazgeç", null).show()
+        }
         setContentView(frame); Ui.window(this)
         Ui.enter(parts)
         refresh()
@@ -186,34 +222,38 @@ class MainActivity : Activity() {
 
     private fun refresh(msg: String? = null) {
         val paired = store.paired
-        status.text = msg ?: if (paired) "Eşleşti: ${store.pcName}"
-        else "Henüz eşleşmedi.\nBilgisayarda Phoneix uygulamasını aç ve \"Telefonu eşleştir\" ile kodu çıkar."
-        test.isEnabled = paired
-        unpair.isEnabled = paired
+        status.text = msg ?: if (paired) store.pcName else "Henüz eşleşmedi"
         val granted = accessGranted()
         val free = batteryFree()
-        battery.text = if (free) "Pil kısıtlaması yok ✓" else "Pil kısıtlamasını kaldır"
-        battery.isEnabled = !free
-        access.text = if (granted) "Bildirim erişimi açık ✓" else "Bildirim erişimi ver"
+        // eşleşmemişken yalnızca eşleştirme; eşleşmişken eksik izin düğmeleri ya da "tamam" satırı
+        pairBtn.visibility = if (paired) View.GONE else View.VISIBLE
+        power.visibility = if (paired) View.VISIBLE else View.GONE
+        tools.visibility = if (paired) View.VISIBLE else View.GONE
+        permBox.visibility = if (paired) View.VISIBLE else View.GONE
+        access.visibility = if (granted) View.GONE else View.VISIBLE
+        battery.visibility = if (free) View.GONE else View.VISIBLE
+        permOk.visibility = if (granted && free) View.VISIBLE else View.GONE
+        permOk.text = "✓ İzinler tamam · ${store.apps.size} uygulamanın bildirimleri aktarılıyor"
+        rePair.visibility = if (paired) View.VISIBLE else View.GONE
+        unpair.visibility = if (paired) View.VISIBLE else View.GONE
         apps.isEnabled = paired
-        modeMon.isEnabled = paired; modeDeck.isEnabled = paired
-        upload.isEnabled = paired
-        apps.text = "Hangi uygulamalar? (${store.apps.size} seçili)"
+        apps.text = "Aktarılacak uygulamalar · ${store.apps.size} seçili"
         checkPc()
-        if (paired && msg == null) status.text = status.text.toString() + "\n" + (if (granted) "Bildirim aktarma: açık" else "Bildirim aktarma için erişim gerekli")
     }
 
     /** Bilgisayar şu an ulaşılabilir mi? Kısa bir ping; sonuç durum satırına ve güç düğmelerine yansır. */
     private fun checkPc() {
         val key = store.key
-        if (key == null) { pcOnline = false; pcState.visibility = View.GONE; setPower(false); return }
-        pcState.visibility = View.VISIBLE; pcState.text = "Bilgisayar denetleniyor…"
+        if (key == null) { pcOnline = false; pcState.text = "Bilgisayarda Phoneix'i aç, \"Telefonu eşleştir\" ile çıkan kodu QR ile okut."; setPower(false); return }
+        pcState.visibility = View.VISIBLE; pcState.text = "Denetleniyor…"
         Thread {
             val r = Link.send(key, store.hosts, store.port, JSONObject().put("type", "ping"), 2500)
             val on = r.ok
+            val bat = r.reply?.optJSONObject("bat") // yalnızca dizüstü bilgisayar pil bildirir
+            val batText = bat?.let { " · 🔋 %" + it.optInt("level") + if (it.optBoolean("charging")) " şarjda" else "" } ?: ""
             ui {
                 pcOnline = on
-                pcState.text = if (on) "🟢 Bilgisayar açık ve ulaşılabilir" else "🔴 Bilgisayara ulaşılamıyor (kapalı, uykuda ya da başka ağda)"
+                pcState.text = if (on) "🟢 Açık ve ulaşılabilir$batText" else "🔴 Ulaşılamıyor (kapalı, uykuda ya da başka ağda)"
                 setPower(on)
             }
         }.start()
