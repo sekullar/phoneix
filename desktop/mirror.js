@@ -169,7 +169,9 @@ async function start(opts = {}) {
   ctx.cmd({ type: 'keepalive', on: true }); // yansıtma boyunca telefonun Wi‑Fi'si ve işlemcisi uyumasın
   const dev = list.find((d) => !d.wifi) || list[0];
   const title = 'Phoneix · ' + (ctx.phoneName() || dev.model || 'Telefon');
-  const args = ['-s', dev.serial, '--window-title', title, '--max-fps', '60', '--video-bit-rate', '10M'];
+  const args = ['-s', dev.serial, '--window-title', title, '--max-fps', '60', '--video-bit-rate', '8M',
+    // Kablosuzda akıcılık: uzun kenarı 1600 pikselle sınırla (pencere zaten küçük), sabit bit hızı (CBR) Wi-Fi'de ani veri patlamalarını önler
+    '--max-size', '1600', '--video-codec-options=bitrate-mode=2'];
   args.push(...ctx.layout(await phoneSize(dev.serial))); // çerçeve açıksa: pencere çerçevenin ekran alanına oturur
   if (opts.audio === false) args.push('--no-audio');
   if (opts.screenOff) args.push('--turn-screen-off');

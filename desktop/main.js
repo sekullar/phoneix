@@ -292,6 +292,7 @@ function onBarAction(action, data, text) {
     else showWindow(); // adada yazılamadı: uygulamadaki yanıt kutusu
   } else if (data === 'call' && ['answer', 'reject', 'hangup'].includes(action)) {
     if (action === 'reject') call.rejected = true;
+    log('arama düğmesi:', action);
     remote.push({ type: 'call', action });
   }
 }
@@ -448,6 +449,7 @@ app.on('will-quit', () => { callui.destroy(); mirror.stop(); stats.stop(); deck.
 app.whenReady().then(() => {
   load();
   remote.onWake(files.wake);
+  remote.onTake((c) => log('komut telefona gitti:', c.map((x) => x.type + (x.action ? ':' + x.action : '')).join(',')));
   deck.init({
     iconOf: async (p) => { // uygulama simgesi (önbellekli, 64x64 PNG data URL)
       if (iconCache.has(p)) return iconCache.get(p);
