@@ -249,6 +249,15 @@
   <section class="card">
     <label class="sw"><div><div>Windows açılınca başlat</div><div class="dim">Tepsiye küçülür, pencere açılmaz.</div></div><input type="checkbox" id="auto"></label>
     <label class="sw" style="margin-top:14px"><div><div>Panoyu telefonla eşitle</div><div class="dim">Burada kopyaladığın telefonda da yapışır. Telefondan kopyalamak için Hızlı Ayarlar'daki "Panoyu gönder" karosu.</div></div><input type="checkbox" id="clip"></label>
+    <label class="sw" style="margin-top:14px"><div><div>Aramaları Dynamic Bar'da göster</div><div class="dim">Açıkken gelen arama adada Aç / Reddet düğmeleriyle görünür. Kapalıyken (ya da Dynamic Bar yoksa) Phoneix'in kendi küçük arama penceresi açılır. Rahatsız Etmeyin açıkken (telefonda ya da Dynamic Bar'da) arama gösterilmez.</div></div><input type="checkbox" id="callbar"></label>
+    <label class="sw" style="margin-top:14px"><div><div>Aramada bilgisayarda da zil çal</div><div class="dim">Telefon çalarken bilgisayarda da zil sesi duyulur, açınca ya da kapanınca susar.</div></div><input type="checkbox" id="callring"></label>
+    <div id="ringopts" style="margin-top:10px">
+      <div class="row" style="gap:8px;align-items:center">
+        <select id="ringsound"><option value="app">Phoneix zili</option><option value="phone">Telefonun zil sesi</option><option value="file">Kendi dosyam…</option></select>
+        <button id="ringpick" hidden>Dosya seç</button><button id="ringtest">Dene</button>
+      </div>
+      <div class="dim" id="ringinfo" style="margin-top:6px"></div>
+    </div>
     <div class="dim" id="net" style="margin-top:12px"></div>
   </section>
 </main>
@@ -280,7 +289,10 @@
     $('ddot').className = 'dot ' + (st.dynbar ? 'ok' : 'warn');
     $('dtitle').textContent = st.dynbar ? 'Dynamic Bar bulundu' : 'Dynamic Bar çalışmıyor';
     $('dsub').textContent = st.dynbar ? 'Telefon bildirimleri adada görünür.' : 'Bildirimler yerine Windows bildirimi gösterilir.';
-    $('auto').checked = !!st.autostart; $('clip').checked = st.clipSync !== false;
+    $('auto').checked = !!st.autostart; $('clip').checked = st.clipSync !== false; $('callbar').checked = st.callOnBar !== false; $('callring').checked = st.callRing !== false;
+    $('ringsound').value = st.ringSound || 'app'; $('ringpick').hidden = st.ringSound !== 'file'; $('ringopts').style.display = st.callRing !== false ? '' : 'none';
+    $('ringinfo').textContent = st.ringSound === 'file' ? (st.ringFile ? 'Seçili: ' + st.ringFile : 'Henüz dosya seçilmedi, Phoneix zili çalar.')
+      : st.ringSound === 'phone' ? (st.phoneRing ? 'Telefonun zil sesi kullanılıyor.' : 'Telefonun zil sesi henüz alınmadı, o zamana kadar Phoneix zili çalar.') : '';
     const p = st.phone; $('batt').textContent = p && Date.now() - p.t < 120000 ? '🔋 %' + p.battery + (p.charging ? ' · şarjda' : '') : '';
     $('ring').textContent = st.ringing ? 'Çalmayı durdur' : 'Telefonumu çaldır';
     $('net').textContent = st.listening ? 'Dinleniyor: ' + (st.ips.join(', ') || 'ağ adresi yok') + ' · bağlantı noktası ' + st.port : 'Eşleşme yokken dinlenmez.';
@@ -438,6 +450,11 @@
   });
   $('ring').onclick = () => { phoneix.ring(!(st && st.ringing)); };
   $('clip').onchange = (e) => phoneix.clipSync(e.target.checked);
+  $('callbar').onchange = (e) => phoneix.callOpts({ onBar: e.target.checked });
+  $('ringsound').onchange = (e) => phoneix.callOpts({ sound: e.target.value });
+  $('ringpick').onclick = async () => { const r = await phoneix.ringPick(); if (r && r.error) $('ringinfo').textContent = r.error; };
+  $('ringtest').onclick = () => phoneix.ringTest();
+  $('callring').onchange = (e) => phoneix.callOpts({ ring: e.target.checked });
   $('mstart').onclick = async () => { $('mstart').disabled = true; $('mstart').classList.add('busy'); const r = await phoneix.mirrorStart(); $('mstart').classList.remove('busy'); $('mstart').disabled = false; toast(r && r.ok ? 'Ekran açıldı' : (r && r.error) || 'Başlatılamadı'); };
   $('wpair').onclick = async () => { $('wpair').disabled = true; const r = await phoneix.mirrorPair($('wpa').value, $('wpc').value); $('wpair').disabled = false; toast(r.ok ? r.text : r.error); if (r.ok) $('wpc').value = ''; };
   $('wconn').onclick = async () => { const r = await phoneix.mirrorConnect($('wca').value); toast(r.ok ? 'Bağlandı' : r.error); };

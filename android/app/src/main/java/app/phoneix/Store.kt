@@ -41,6 +41,10 @@ class Store(ctx: Context) {
     var theme: String
         get() = p.getString("theme", "dark") ?: "dark"
         set(v) = p.edit().putString("theme", v).apply()
+    /** Düşük önemli (sessiz) bildirimleri gönderme: WhatsApp "bağlantınız kontrol ediliyor" gibi sistem bildirimleri */
+    var skipSilent: Boolean
+        get() = p.getBoolean("skipSilent", true)
+        set(v) = p.edit().putBoolean("skipSilent", v).apply()
     var hideText: Boolean
         get() = p.getBoolean("hide", false)
         set(v) = p.edit().putBoolean("hide", v).apply()

@@ -1,6 +1,6 @@
 {
   "name": "phoneix",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Phoneix: Android phone link for Windows (notifications, files, screen)",
   "main": "main.js",
   "scripts": {

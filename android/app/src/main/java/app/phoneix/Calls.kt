@@ -5,6 +5,7 @@ import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.pm.PackageManager
+import android.app.NotificationManager
 import android.media.AudioManager
 import android.os.Build
 import android.os.Handler
@@ -26,6 +27,8 @@ object Calls {
     private val main = Handler(Looper.getMainLooper())
     private var registered = false
     private lateinit var app: Context
+    // Android dinleyiciyi yalnızca zayıf referansla tutar: burada saklanmazsa çöp toplayıcı siler ve arama olayları sessizce kesilir
+    private var keepAlive: Any? = null
     @Volatile private var state = "idle"
     @Volatile private var who = ""
     private var answerPi: PendingIntent? = null
@@ -44,12 +47,16 @@ object Calls {
         val tm = app.getSystemService(TelephonyManager::class.java) ?: return
         try {
             if (Build.VERSION.SDK_INT >= 31) {
-                tm.registerTelephonyCallback(io, object : TelephonyCallback(), TelephonyCallback.CallStateListener {
+                val cb = object : TelephonyCallback(), TelephonyCallback.CallStateListener {
                     override fun onCallStateChanged(s: Int) { onState(s) }
-                })
+                }
+                keepAlive = cb
+                tm.registerTelephonyCallback(io, cb)
             } else {
                 @Suppress("DEPRECATION")
-                main.post { tm.listen(object : PhoneStateListener() { @Deprecated("Deprecated in Java") override fun onCallStateChanged(s: Int, n: String?) { onState(s) } }, PhoneStateListener.LISTEN_CALL_STATE) }
+                val l = object : PhoneStateListener() { @Deprecated("Deprecated in Java") override fun onCallStateChanged(s: Int, n: String?) { onState(s) } }
+                keepAlive = l
+                main.post { tm.listen(l, PhoneStateListener.LISTEN_CALL_STATE) }
             }
             registered = true
         } catch (e: SecurityException) { /* izin geri alındı */ }
@@ -61,7 +68,7 @@ object Calls {
         val was = state
         state = next
         if (next == "idle") { report("ended"); who = ""; answerPi = null; declinePi = null; hangPi = null; lastSent = ""; return }
-        if (next == "ringing" && was == "idle") main.postDelayed({ if (state == "ringing") report("ringing") }, 600) // arayan adı bildirimi birazdan gelir
+        if (next == "ringing" && was == "idle") main.postDelayed({ if (state == "ringing") report("ringing") }, 250) // arayan adı bildirimi birazdan gelir
         else report(next)
     }
 
@@ -95,14 +102,20 @@ object Calls {
         io.execute {
             val store = Store(ctx)
             val k = store.key ?: return@execute
-            val msg = JSONObject().put("type", "call").put("state", st).put("who", who).put("speaker", speaker())
+            val msg = JSONObject().put("type", "call").put("state", st).put("who", who).put("speaker", speaker()).put("dnd", dndOn())
             Link.send(k, store.hosts, store.port, msg, 6000)
         }
     }
 
+    /** Telefonda Rahatsız Etmeyin (ya da herhangi bir kesinti filtresi) açık mı: bilgisayar da aramayı göstermesin. */
+    private fun dndOn(): Boolean = try {
+        val f = (app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).currentInterruptionFilter
+        f != NotificationManager.INTERRUPTION_FILTER_ALL && f != NotificationManager.INTERRUPTION_FILTER_UNKNOWN
+    } catch (e: Exception) { false }
+
     private fun speaker(): Boolean = try { (app.getSystemService(Context.AUDIO_SERVICE) as AudioManager).isSpeakerphoneOn } catch (e: Exception) { false }
 
-    /** Bilgisayardan gelen komut: answer | reject | hangup | speaker. */
+    /** Bilgisayardan gelen komut: answer | reject | hangup. */
     fun command(ctx: Context, action: String) {
         app = ctx.applicationContext
         val tm = app.getSystemService(TelecomManager::class.java)
@@ -116,11 +129,6 @@ object Calls {
                 var done = false
                 if (hasAnswerPermission(app)) try { @Suppress("DEPRECATION") done = tm.endCall() } catch (e: Exception) { /* bildirim düğmesine düş */ }
                 if (!done) try { (if (action == "reject") declinePi ?: hangPi else hangPi ?: declinePi)?.send() } catch (e: Exception) { /* yok */ }
-            }
-            "speaker" -> {
-                val am = app.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                try { @Suppress("DEPRECATION") am.isSpeakerphoneOn = !am.isSpeakerphoneOn } catch (e: Exception) { /* cihaz izin vermedi */ }
-                if (state == "active") report("active")
             }
         }
     }

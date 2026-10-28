@@ -61,7 +61,7 @@ class ModeActivity : Activity() {
         }
     }
 
-    private class Btn(val id: String, val label: String, val icon: String, val color: Int, val img: android.graphics.Bitmap?)
+    private class Btn(val id: String, val label: String, val icon: String, val color: Int, val img: android.graphics.Bitmap?, val confirm: String = "")
     private class Page(val name: String, val buttons: List<Btn>)
 
     private fun dp(v: Int) = Ui.dp(this, v)
@@ -228,7 +228,7 @@ class ModeActivity : Activity() {
                 val p = ps!!.getJSONObject(i); val bs = p.optJSONArray("buttons")
                 Page(p.optString("name", "Sayfa"), (0 until (bs?.length() ?: 0)).map { j ->
                     val b = bs!!.getJSONObject(j)
-                    Btn(b.optString("id"), b.optString("label"), b.optString("icon"), try { Color.parseColor(b.optString("color", "#2f8cff")) } catch (e: Exception) { Ui.A1 }, decodeImg(b.optString("img")))
+                    Btn(b.optString("id"), b.optString("label"), b.optString("icon"), try { Color.parseColor(b.optString("color", "#2f8cff")) } catch (e: Exception) { Ui.A1 }, decodeImg(b.optString("img")), b.optString("confirm"))
                 })
             }
             ui { pages = list; if (page >= list.size) page = 0; renderDeck() }
@@ -281,6 +281,15 @@ class ModeActivity : Activity() {
 
     private fun press(tile: View, b: Btn) {
         tile.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+        if (b.confirm.isNotEmpty()) {
+            android.app.AlertDialog.Builder(this).setTitle(b.label).setMessage(b.confirm)
+                .setPositiveButton(b.label) { _, _ -> send(tile, b) }.setNegativeButton("Vazgeç", null).show()
+            return
+        }
+        send(tile, b)
+    }
+
+    private fun send(tile: View, b: Btn) {
         val key = store.key ?: return
         thread {
             val r = Link.send(key, store.hosts, store.port, JSONObject().put("type", "press").put("id", b.id), 6000)

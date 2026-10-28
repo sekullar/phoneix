@@ -34,6 +34,16 @@ const starter = () => ({
   ]
 });
 
+// Telefonda her zaman görünen, düzenlenemeyen "Güç" sayfası. Tuşlar sabittir; telefon yalnızca id gönderir.
+// confirm: telefon basmadan önce onay sorar (geri alınamaz işlemler).
+const POWER = [
+  { id: 'pw_lock', label: 'Kilitle', icon: '🔒', color: '#2f8cff', run: ['rundll32.exe', ['user32.dll,LockWorkStation']] },
+  { id: 'pw_sleep', label: 'Uyku', icon: '🌙', color: '#7c6cff', confirm: 'Bilgisayar uykuya alınsın mı?', run: ['rundll32.exe', ['powrprof.dll,SetSuspendState', '0,1,0']] },
+  { id: 'pw_screen', label: 'Ekranı kapat', icon: '🖥️', color: '#27c4a8', screenOff: true },
+  { id: 'pw_restart', label: 'Yeniden başlat', icon: '🔄', color: '#ff9f43', confirm: 'Bilgisayar yeniden başlatılsın mı? Kaydedilmemiş işler kaybolabilir.', run: ['shutdown.exe', ['/r', '/t', '3']] },
+  { id: 'pw_shutdown', label: 'Kapat', icon: '🔌', color: '#ff5b6e', confirm: 'Bilgisayar kapatılsın mı? Kaydedilmemiş işler kaybolabilir.', run: ['shutdown.exe', ['/s', '/t', '3']] }
+];
+
 const file = () => path.join(ctx.userData(), 'deck.json');
 const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
 function clean(c) { // dışarıdan gelen (arayüz) yapılandırmayı doğrula
@@ -66,6 +76,7 @@ async function layout() {
     }
     pages.push({ id: p.id, name: p.name, buttons });
   }
+  pages.push({ id: 'power', name: 'Güç', buttons: POWER.map((b) => ({ id: b.id, label: b.label, icon: b.icon, color: b.color, confirm: b.confirm || '' })) });
   return { pages };
 }
 
@@ -89,6 +100,15 @@ const isWeb = (u) => { try { return ['http:', 'https:'].includes(new URL(u).prot
 
 /** Tuşa basıldı. Dönüş: {ok, error?} */
 async function press(id) {
+  const pw = POWER.find((x) => x.id === id);
+  if (pw) {
+    try {
+      if (pw.screenOff) spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', "Add-Type -Namespace W -Name M -MemberDefinition '[DllImport(\"user32.dll\")] public static extern int SendMessage(int h,int m,int w,int l);'; [W.M]::SendMessage(0xffff,0x112,0xF170,2)"], { windowsHide: true, detached: true, stdio: 'ignore' }).unref();
+      else spawn(pw.run[0], pw.run[1], { windowsHide: true, detached: true, stdio: 'ignore' }).unref();
+      ctx.log('deck', pw.label, 'power');
+      return { ok: true };
+    } catch { return { ok: false, error: 'Çalıştırılamadı' }; }
+  }
   const b = load().pages.flatMap((p) => p.buttons).find((x) => x.id === id);
   if (!b) return { ok: false, error: 'Tuş bulunamadı' };
   const { type, value } = b.action;

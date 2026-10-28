@@ -49,6 +49,7 @@ class NotificationService : NotificationListenerService() {
                     "clip" -> if (store.clipSync) Clip.apply(this, c.optString("text"))
                     "ring" -> Ringer.start(this)
                     "stopring" -> Ringer.stop(this)
+                    "getring" -> io.execute { Ringer.sendRingtone(this) }
                     "call" -> Calls.command(this, c.optString("action"))
                     "mode" -> ModeActivity.open(this, c.optString("mode"))
                     "adbwifi" -> {
@@ -112,6 +113,10 @@ class NotificationService : NotificationListenerService() {
         if (own && n.channelId != "phx_test") return // yalnızca yanıt testi bildirimi kendi paketimizden geçer
         if (!own && sbn.packageName !in store.apps) return
         if (n.flags and (Notification.FLAG_GROUP_SUMMARY or Notification.FLAG_ONGOING_EVENT) != 0) return
+        if (store.skipSilent && !own) { // sistem bildirimleri ("bağlantınız kontrol ediliyor") düşük önemli kanallardan gelir; mesajlar yüksek önemlidir
+            val r = Ranking()
+            if (currentRanking.getRanking(sbn.key, r) && r.importance <= NotificationManager.IMPORTANCE_LOW) return
+        }
         val title = n.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty().trim()
         val text = (n.extras.getCharSequence(Notification.EXTRA_BIG_TEXT) ?: n.extras.getCharSequence(Notification.EXTRA_TEXT))?.toString().orEmpty().trim()
         if (title.isEmpty() && text.isEmpty()) return

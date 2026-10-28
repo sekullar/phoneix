@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; media-src data:; script-src 'unsafe-inline'">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; font-family: 'Segoe UI', system-ui, sans-serif; user-select: none; }
+  .card { margin: 6px; height: calc(100% - 12px); padding: 12px 14px; border-radius: 20px; background: linear-gradient(135deg, #e8f4ff, #cfe6ff); color: #0b2a4a;
+    box-shadow: 0 10px 28px rgba(20, 70, 140, .35); display: flex; flex-direction: column; justify-content: space-between; animation: in .35s cubic-bezier(.2, .9, .3, 1.2) both; }
+  @keyframes in { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: none; } }
+  .top { display: flex; align-items: center; gap: 12px; }
+  .ico { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-size: 19px; background: #2f8cff; color: #fff; flex: none; }
+  .ringing .ico { animation: shake .7s ease-in-out infinite; }
+  @keyframes shake { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-16deg); } 40% { transform: rotate(14deg); } 60% { transform: rotate(-10deg); } 80% { transform: rotate(8deg); } }
+  .who { font-weight: 700; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sub { font-size: 12.5px; color: #3d6a9b; }
+  .btns { display: flex; gap: 8px; }
+  button { flex: 1; border: 0; border-radius: 12px; padding: 8px 10px; font-family: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: transform .12s, filter .15s; }
+  button:hover { filter: brightness(1.06); } button:active { transform: scale(.97); }
+  .ok { background: #2fb36d; color: #fff; } .no { background: #e5484d; color: #fff; } .alt { background: #ffffffcc; color: #0b2a4a; } .alt.on { background: #2f8cff; color: #fff; }
+  .hid { display: none; }
+</style></head>
+<body>
+  <div class="card" id="card">
+    <div class="top"><div class="ico">📞</div><div style="min-width:0"><div class="who" id="who"></div><div class="sub" id="sub"></div></div></div>
+    <div class="btns" id="bRing"><button class="ok" data-a="answer">Aç</button><button class="no" data-a="reject">Reddet</button></div>
+    <div class="btns hid" id="bAct"><button class="no" data-a="hangup">Kapat</button></div>
+  </div>
+<script>
+  const $ = (id) => document.getElementById(id);
+  document.querySelectorAll('button').forEach((b) => (b.onclick = () => callApi.action(b.dataset.a)));
+  callApi.onCall((s) => {
+    if (s.state === 'idle') return;
+    const ringing = s.state === 'ringing';
+    $('card').classList.toggle('ringing', ringing);
+    $('who').textContent = s.who || 'Bilinmeyen numara';
+    $('sub').textContent = ringing ? 'Arıyor…' : 'Görüşmede';
+    $('bRing').classList.toggle('hid', !ringing); $('bAct').classList.toggle('hid', ringing);
+  });
+
+  // Zil sesi: telefonun varsayılanına benzeyen iki notalı bir melodi, çalarken 2,6 sn'de bir tekrarlanır
+  let ac = null, timer = null;
+  function chime() {
+    try {
+      ac = ac || new AudioContext(); if (ac.state === 'suspended') ac.resume();
+      const t = ac.currentTime;
+      [[784, 0], [988, .16], [784, .5], [988, .66]].forEach(([f, d]) => {
+        const o = ac.createOscillator(), g = ac.createGain(), s = t + d;
+        o.type = 'sine'; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, s); g.gain.linearRampToValueAtTime(0.22, s + .02); g.gain.exponentialRampToValueAtTime(0.0001, s + .3);
+        o.connect(g); g.connect(ac.destination); o.start(s); o.stop(s + .35);
+      });
+    } catch {}
+  }
+  let clip = null;
+  callApi.onRing((r) => {
+    clearInterval(timer); timer = null;
+    if (clip) { clip.pause(); clip = null; }
+    if (!r.on) return;
+    if (r.src) {
+      clip = new Audio(r.src); clip.loop = true; clip.volume = 0.8;
+      clip.play().catch(() => { clip = null; chime(); timer = setInterval(chime, 2600); }); // çalınamazsa Phoneix melodisi
+    } else { chime(); timer = setInterval(chime, 2600); }
+  });
+</script></body></html>

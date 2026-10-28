@@ -21,6 +21,19 @@ object Ringer {
     private val stopper = Runnable { stop(appCtx) }
     private lateinit var appCtx: Context
 
+    /** Telefonun varsayılan zil sesini bilgisayara gönderir (bir kez; 2 MB üstü ya da okunamayan dosya gönderilmez, bilgisayar kendi melodisine döner). */
+    fun sendRingtone(ctx: Context) {
+        try {
+            val store = Store(ctx); val key = store.key ?: return
+            val uri = RingtoneManager.getActualDefaultRingtoneUri(ctx, RingtoneManager.TYPE_RINGTONE) ?: return
+            val mime = ctx.contentResolver.getType(uri) ?: "audio/mpeg"
+            val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return
+            if (bytes.isEmpty() || bytes.size > 2 * 1024 * 1024) return
+            val msg = org.json.JSONObject().put("type", "ringtone").put("mime", mime).put("data", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP))
+            Link.send(key, store.hosts, store.port, msg, 15000)
+        } catch (e: Exception) { }
+    }
+
     fun start(ctx0: Context) {
         val ctx = ctx0.applicationContext
         appCtx = ctx
