@@ -418,6 +418,17 @@ function startApi() {
       req.on('end', () => { let j = {}; try { j = JSON.parse(body || '{}'); } catch {} if (!store.key) return out(409, { ok: false, error: 'Telefon eşleşmemiş' }); if (!['monitor', 'deck'].includes(j.mode)) return out(400, { ok: false, error: 'mode: monitor | deck' }); ipcMain.emit('mode:open', null, j.mode); out(200, { ok: true }); });
       return;
     }
+    if (req.method === 'POST' && req.url === '/link') { // başka bir uygulamanın (Pyramid) eşleşme bağlantısını telefona ilet; QR gerekmez
+      let body = ''; req.on('data', (d) => { body += d; if (body.length > 1e4) req.destroy(); });
+      req.on('end', () => {
+        let j = {}; try { j = JSON.parse(body || '{}'); } catch {}
+        if (!store.key) return out(409, { ok: false, error: 'Telefon eşleşmemiş' });
+        // Yalnızca Pyramid'in eşleşme bağlantısı geçer; telefondaki Phoneix bunu yine yalnızca Pyramid uygulamasına verir.
+        if (typeof j.url !== 'string' || j.url.length > 4000 || !/^pyramid:\/\/pair\?d=[A-Za-z0-9_-]+$/.test(j.url)) return out(400, { ok: false, error: 'url: pyramid://pair?d=...' });
+        remote.push({ type: 'link', url: j.url }); note('link', 'Pyramid eşleşmesi telefona gönderildi'); out(200, { ok: true });
+      });
+      return;
+    }
     if (req.method === 'POST' && req.url === '/mirror') {
       let body = ''; req.on('data', (d) => { body += d; if (body.length > 1e4) req.destroy(); });
       req.on('end', async () => { let j = {}; try { j = JSON.parse(body || '{}'); } catch {} if (j.on === false) { stopMirror(); return out(200, { ok: true }); } out(200, await startMirror()); });

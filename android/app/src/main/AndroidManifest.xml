@@ -10,6 +10,7 @@
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
     <queries>
+        <package android:name="com.sekullar.pyramid" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />

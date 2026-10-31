@@ -75,6 +75,7 @@ class NotificationService : NotificationListenerService() {
                     "getring" -> io.execute { Ringer.sendRingtone(this) }
                     "call" -> Calls.command(this, c.optString("action"))
                     "mode" -> ModeActivity.open(this, c.optString("mode"))
+                    "link" -> Links.openPyramidPairing(this, c.optString("url"))
                     "adbwifi" -> {
                         val on = c.optBoolean("on", true)
                         KeepAlive.setAdbWifi(this, on)
