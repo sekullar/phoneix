@@ -11,6 +11,7 @@ const deck = require('./deck');
 const frame = require('./frame');
 const sensor = require('./sensor');
 const callui = require('./callui');
+const apkupdate = require('./apkupdate');
 sensor.init({ userData: () => app.getPath('userData'), log: (m) => log(m) });
 const http = require('http'), crypto = require('crypto');
 const { execFile } = require('child_process');
@@ -92,6 +93,7 @@ async function onMessage(m, first, gone) {
     if (code) { lastClip = code; clipboard.writeText(code); note('otp', 'Doğrulama kodu panoya kopyalandı'); forward({ title: 'Doğrulama kodu', text: code + ' · panoya kopyalandı', icon: '🔑', ttl: 6 }); }
     return { ok: !!code };
   }
+  if (m.type === 'photolist' || m.type === 'photofull') { photoReply(m); return {}; }
   if (m.type === 'stats') return { stats: await stats.get() };
   if (m.type === 'deck') return { deck: await deck.layout() };
   if (m.type === 'press') return typeof m.id === 'string' ? deck.press(m.id.slice(0, 20)) : { ok: false, error: 'Geçersiz tuş' };
@@ -121,6 +123,8 @@ async function onMessage(m, first, gone) {
   } else if (m.type === 'poll') {
     // Uzun yoklama 25 sn tutulur; 90 sn'den uzun sessizlikten sonra gelen ilk yoklama = telefon (yeniden) bağlandı
     setPorts(m.adbports);
+    phone.ver = apkupdate.VER.test(String(m.ver || '')) ? m.ver : ''; // 0.3.0 ve öncesi uygulama sürüm bildirmez
+    setTimeout(() => autoUpdateApk(), 3000); // yoklama yanıtını geciktirmesin
     if (Date.now() - phone.t > 90000) { note('online', 'Telefon bağlandı'); forward({ title: 'Telefon bağlandı', text: store.name || 'Telefon', ttl: 3 }); }
     if (Number.isInteger(m.battery) && m.battery >= 0 && m.battery <= 100) { phone = { ...phone, battery: m.battery, charging: !!m.charging, secure: m.secure === true, adbwifi: m.adbwifi === true, ip: typeof m.ip === 'string' && /^\d{1,3}(\.\d{1,3}){3}$/.test(m.ip) ? m.ip : phone.ip, t: Date.now() }; batteryWatch(); }
     return files.onPoll(gone);
@@ -157,7 +161,7 @@ async function state() {
   const l = dynbarLink(), s = server.status();
   return {
     paired: !!store.key, name: store.name, lastMsg: store.lastMsg, listening: s.listening, port: s.port, pairing: s.pairing, ips: s.ips,
-    dynbar: l ? await dynbarAlive(l) : false, mirror: await mirror.status(), phoneIp: server.status().lastIp, mirrorAudio: store.mirrorAudio !== false, mirrorReconnect: store.mirrorReconnect !== false, mirrorOff: !!store.mirrorOff, transfers: files.list(), replies: [...replies.values()].reverse().slice(0, 5), phone: phone.t ? { battery: phone.battery, charging: phone.charging, t: phone.t } : null, clipSync: store.clipSync, callOnBar: store.callOnBar !== false, callRing: store.callRing !== false, callPauseMedia: store.callPauseMedia !== false, ringSound: store.ringSound || 'app', ringFile: store.ringFile ? path.basename(store.ringFile) : '', phoneRing: fs.existsSync(phoneRingPath()), ringing, saveDir: saveDir(), outPending: files.pendingCount(), autostart: app.getLoginItemSettings().openAtLogin, activity: activity.slice(0, 12)
+    apk: apkInfo(), dynbar: l ? await dynbarAlive(l) : false, mirror: await mirror.status(), phoneIp: server.status().lastIp, mirrorAudio: store.mirrorAudio !== false, mirrorReconnect: store.mirrorReconnect !== false, mirrorOff: !!store.mirrorOff, transfers: files.list(), replies: [...replies.values()].reverse().slice(0, 5), phone: phone.t ? { battery: phone.battery, charging: phone.charging, t: phone.t } : null, clipSync: store.clipSync, callOnBar: store.callOnBar !== false, callRing: store.callRing !== false, callPauseMedia: store.callPauseMedia !== false, ringSound: store.ringSound || 'app', ringFile: store.ringFile ? path.basename(store.ringFile) : '', phoneRing: fs.existsSync(phoneRingPath()), ringing, saveDir: saveDir(), outPending: files.pendingCount(), autostart: app.getLoginItemSettings().openAtLogin, activity: activity.slice(0, 12)
   };
 }
 let pushT = null;
@@ -259,6 +263,67 @@ setInterval(() => {
     lastClip = t; remote.push({ type: 'clip', text: t });
   } catch {}
 }, 700).unref();
+
+// ---------- telefon uygulaması (APK) güncelleme: telefon eskiyse masaüstüyle gelen APK adb ile kurulur ----------
+let apkSt = { state: 'idle', error: '' }; // idle | installing | done | error
+const apkInfo = () => {
+  const b = apkupdate.bundled();
+  return { bundled: b ? b.version : '', phone: phone.ver || '', outdated: !!phone.t && apkupdate.outdated(phone.ver, b), auto: store.apkAuto !== false, state: apkSt.state, error: apkSt.error };
+};
+async function installApk(manual) {
+  const b = apkupdate.bundled();
+  if (apkSt.state === 'installing' || !b || !apkupdate.outdated(phone.ver, b)) return { ok: false, error: 'Güncellenecek bir şey yok' };
+  apkSt = { state: 'installing', error: '' }; push();
+  note('apk', 'Telefon uygulaması ' + b.version + ' sürümüne güncelleniyor');
+  const r = await mirror.installApk(b.file);
+  if (r.ok) { apkSt = { state: 'done', error: '' }; phone.ver = b.version; note('apk', 'Telefon uygulaması güncellendi: ' + b.version); forward({ title: 'Telefon uygulaması güncellendi', text: 'Phoneix ' + b.version, icon: '⬆️', ttl: 5 }); }
+  else { apkSt = { state: 'error', error: r.error }; note('apk', 'Güncellenemedi: ' + r.error); log('apk kurulamadı', r.error); }
+  push(); return r;
+}
+// Otomatik: her sürüm için bir kez denenir (başarısızsa kullanıcı düğmeyle yeniden dener); telefon bağlıyken
+function autoUpdateApk() {
+  const b = apkupdate.bundled();
+  if (store.apkAuto === false || !b || apkSt.state === 'installing' || store.apkTried === b.version || !apkupdate.outdated(phone.ver, b)) return;
+  store.apkTried = b.version; save();
+  installApk(false);
+}
+ipcMain.handle('apk:install', () => installApk(true));
+ipcMain.on('apk:auto', (_e, on) => { store.apkAuto = !!on; save(); push(); });
+
+// ---------- telefon fotoğrafları: bilgisayar `photolist` / `photofull` komutu yollar, telefon aynı adlı mesajla yanıtlar (PROTOCOL.md) ----------
+const photoWait = new Map(); // req -> {res, timer}
+function photoAsk(cmd, ms = 25000) {
+  if (!store.key) return Promise.resolve({ error: 'Telefon eşleşmemiş' });
+  const req = crypto.randomBytes(6).toString('hex');
+  return new Promise((res) => {
+    const timer = setTimeout(() => { photoWait.delete(req); res({ error: 'Telefon yanıt vermedi (kapalı ya da başka ağda olabilir)' }); }, ms);
+    photoWait.set(req, { res, timer });
+    remote.push({ ...cmd, req });
+  });
+}
+const B64 = /^[A-Za-z0-9+/]+={0,2}$/;
+function photoReply(m) {
+  const w = typeof m.req === 'string' ? photoWait.get(m.req) : null; if (!w) return;
+  photoWait.delete(m.req); clearTimeout(w.timer);
+  if (typeof m.error === 'string') {
+    const msg = { off: "Telefonda 'Fotoğrafları bilgisayarda göster' kapalı. Phoneix ayarlarından aç.", perm: 'Telefonda fotoğraf izni verilmemiş. Phoneix ayarlarında anahtarı kapatıp aç.' }[m.error];
+    return w.res({ error: msg || 'Telefon fotoğrafları veremedi' });
+  }
+  if (m.type === 'photolist') {
+    const items = (Array.isArray(m.items) ? m.items : []).slice(0, 60).filter((x) => x && /^\d{1,20}$/.test(String(x.id))).map((x) => ({
+      id: String(x.id), name: String(x.name || '').slice(0, 120), t: Number.isFinite(x.t) ? x.t : 0, size: Number.isFinite(x.size) ? x.size : 0,
+      thumb: typeof x.thumb === 'string' && x.thumb.length < 120000 && B64.test(x.thumb) ? 'data:image/jpeg;base64,' + x.thumb : ''
+    }));
+    return w.res({ items, more: m.more === true });
+  }
+  w.res(typeof m.data === 'string' && B64.test(m.data) ? { data: 'data:image/jpeg;base64,' + m.data } : { error: 'Fotoğraf açılamadı' });
+}
+ipcMain.handle('photos:list', (_e, offset) => photoAsk({ type: 'photolist', offset: Math.max(0, Math.min(100000, Number(offset) | 0)), limit: 48 }));
+ipcMain.handle('photos:full', (_e, id) => (/^\d{1,20}$/.test(String(id)) ? photoAsk({ type: 'photofull', id: String(id) }, 40000) : { error: 'Geçersiz fotoğraf' }));
+ipcMain.handle('photos:save', (_e, id) => {
+  if (!store.key || !/^\d{1,20}$/.test(String(id))) return { ok: false };
+  remote.push({ type: 'photosave', id: String(id) }); note('photo', 'Fotoğraf telefondan isteniyor'); return { ok: true, dir: saveDir() };
+});
 
 // ---------- dosya aktarımı: arayüz ve yerel API ----------
 async function sendFiles(paths) {

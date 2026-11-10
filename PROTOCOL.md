@@ -54,6 +54,17 @@ The poll reply also carries `cmds` (short-lived, at most 30 s): `{type:"clip",te
 | `call` | phone → PC | `state` (`ringing`, `active`, `ended`), `who`, `speaker` |
 | `poll` | phone → PC | also `battery`, `charging` |
 
+## Photos
+Off by default: the phone answers `error: "off"` unless "Show photos on PC" is enabled in its settings, and `error: "perm"` without the gallery permission. The PC asks through `cmds`; the phone answers with a message of the same type carrying the same `req`.
+
+| cmd (PC → phone) | fields | phone's answer |
+|---|---|---|
+| `photolist` | `req`, `offset`, `limit` (≤ 60) | message `photolist`: `req`, `items:[{id, name, t, size, thumb}]` (`thumb` = base64 JPEG ~240 px, newest first), `more` |
+| `photofull` | `req`, `id` | message `photofull`: `req`, `data` (base64 JPEG, longest side ≤ 1600 px) |
+| `photosave` | `id` | none; the original goes to the PC through the normal `put` file flow |
+
+`id` is the MediaStore image id (digits only); the PC rejects anything else.
+
 ## Phone modes (monitor, deck) and wireless debugging ports
 | type | direction | fields | reply |
 |---|---|---|---|

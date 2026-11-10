@@ -203,6 +203,11 @@ class MainActivity : Activity() {
         group("Pano ve kodlar")
         opt("Panoyu eşitle", "Bilgisayarda kopyaladığın telefona gelir. Telefondan göndermek için Hızlı Ayarlar'daki \"Panoyu gönder\" karosunu ya da Paylaş → Phoneix'i kullan", store.clipSync) { store.clipSync = it }
         opt("SMS doğrulama kodlarını kopyala", "Gelen kod bilgisayarın panosuna düşer", store.otpCopy) { store.otpCopy = it }
+        group("Fotoğraflar")
+        opt("Fotoğrafları bilgisayarda göster", "Eşleşmiş bilgisayar galerindeki fotoğrafları görebilir ve indirebilir. Kapalıyken hiçbir şey paylaşılmaz", store.photos) { on ->
+            store.photos = on
+            if (on && !Photos.granted(this)) requestPermissions(Photos.perms(), 10)
+        }
         group("Bağlantı")
         rePair = btn(prefs, "Yeniden eşleştir (QR)") { scanQr() }
         unpair = btn(prefs, "Eşleştirmeyi kaldır") {

@@ -24,6 +24,8 @@ It also works with [Dynamic Bar](https://github.com/sekullar/dynamic-bar-for-win
 - **Screen mirroring** – a soft, iOS-style mirroring window built on [scrcpy](https://github.com/Genymobile/scrcpy). It works over USB, or wirelessly: Phoneix switches on wireless debugging on the phone and connects by itself (about 3 s from cold).
 - **System monitor mode** – the phone becomes a landscape second screen showing CPU, GPU, RAM, VRAM, temperatures and network speed from the PC.
 - **Deck mode** – a button pad on the phone. Buttons are defined on the PC and can open URLs or apps (Start Menu picker, with icons), send key combos, control media, lock the PC, start mirroring, trigger Dynamic Bar, or (opt-in) run commands.
+- **Photos** – browse the phone gallery on the PC and save originals (off by default; enable in the phone app's settings).
+- **Phone app updates** – when the desktop app ships a newer APK, Phoneix installs it on the phone over wireless debugging.
 - **Themes** – light-blue animated theme on both apps; the phone also has a dark mode (Settings → Theme: Dark / Light / System).
 
 ## How it is built
@@ -41,7 +43,7 @@ It also works with [Dynamic Bar](https://github.com/sekullar/dynamic-bar-for-win
 
 ## Install (no building needed)
 
-1. **Phone:** download [`releases/Phoneix-0.3.0.apk`](releases/Phoneix-0.3.0.apk) on your phone and open it (Android will ask you to allow installing from your browser).
+1. **Phone:** download [`releases/Phoneix-0.4.0.apk`](releases/Phoneix-0.4.0.apk) on your phone and open it (Android will ask you to allow installing from your browser).
 2. **PC:** install [Node.js](https://nodejs.org), then run:
 
    ```powershell

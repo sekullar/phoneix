@@ -51,21 +51,22 @@ class NotificationService : NotificationListenerService() {
             if (key == null) { nap(5000); continue }
             Calls.ensureWatcher(this)
             val (level, plugged) = batteryInfo()
-            val poll = JSONObject().put("type", "poll").put("battery", level).put("charging", plugged).put("secure", KeepAlive.canWriteSecure(this)).put("adbwifi", KeepAlive.adbWifiEnabled(this)).put("ip", localIp())
+            val poll = JSONObject().put("type", "poll").put("battery", level).put("charging", plugged).put("secure", KeepAlive.canWriteSecure(this)).put("adbwifi", KeepAlive.adbWifiEnabled(this)).put("ip", localIp()).put("ver", appVersion())
             if (KeepAlive.adbWifiEnabled(this)) poll.put("adbports", org.json.JSONArray(KeepAlive.adbPorts(this)))
             val r = Link.send(key, store.hosts, store.port, poll, 40000)
             if (!r.ok) {
                 fails++
                 val now = System.currentTimeMillis()
                 if (failSince == 0L) failSince = now
+                if (fails >= 2 && Discover.run(this, store, key)) { fails = 0; failSince = 0L; continue } // IP değişmiş olabilir: ağda ara
                 if (!alerted && store.pcAlert && now - failSince >= 120_000) { alerted = true; pcNotice(false) }
                 // Bilgisayar yeniden başlarken komutlar geç kalmasın: ilk 2 dakika sık dene, sonra pil için seyrelt
                 nap(if (now - failSince < 120_000) minOf(8000L, 2000L * fails) else 60000L); continue
             }
             fails = 0; failSince = 0L
             if (alerted) { alerted = false; pcNotice(true) }
-            r.host?.let { store.remember(it) }
-            val cmds = r.reply?.optJSONArray("cmds")
+            r.host?.let { store.remember(it); store.learn(listOf(it), r.reply?.optInt("p", store.port) ?: store.port, r.reply?.optJSONArray("h")) }
+            val cmds =r.reply?.optJSONArray("cmds")
             if (cmds != null) for (i in 0 until cmds.length()) {
                 val c = cmds.getJSONObject(i)
                 when (c.optString("type")) {
@@ -75,7 +76,8 @@ class NotificationService : NotificationListenerService() {
                     "getring" -> io.execute { Ringer.sendRingtone(this) }
                     "call" -> Calls.command(this, c.optString("action"))
                     "mode" -> ModeActivity.open(this, c.optString("mode"))
-                    "link" -> Links.openPyramidPairing(this, c.optString("url"))
+                    "photolist", "photofull", "photosave" -> Photos.handle(this, key, store, c)
+                    "link" ->Links.openPyramidPairing(this, c.optString("url"))
                     "adbwifi" -> {
                         val on = c.optBoolean("on", true)
                         KeepAlive.setAdbWifi(this, on)
@@ -111,6 +113,8 @@ class NotificationService : NotificationListenerService() {
         val cm = getSystemService(ConnectivityManager::class.java)
         cm.getLinkProperties(cm.activeNetwork)?.linkAddresses?.map { it.address }?.firstOrNull { it is Inet4Address && !it.isLoopbackAddress }?.hostAddress.orEmpty()
     } catch (e: Exception) { "" }
+
+    private fun appVersion(): String = try { packageManager.getPackageInfo(packageName, 0).versionName ?: "" } catch (e: Exception) { "" }
 
     private fun batteryInfo(): Pair<Int, Boolean> {
         val i = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))

@@ -23,6 +23,15 @@ class Store(ctx: Context) {
         p.edit().putString("key", key).putString("pc", pc).putString("hosts", JSONArray(hosts).toString()).putInt("port", port).remove("last").apply()
     }
     fun remember(host: String) = p.edit().putString("last", host).apply()
+
+    /** Bilgisayarın bildirdiği güncel adresleri (ve portu) kaydeder; yeniler öne geçer, en çok 8 adres tutulur. */
+    fun learn(first: List<String>, port: Int, reported: JSONArray?) {
+        val fresh = first + (0 until (reported?.length() ?: 0)).mapNotNull { reported?.optString(it)?.takeIf { s -> Regex("""\d{1,3}(\.\d{1,3}){3}""").matches(s) } }
+        val merged = (fresh + hosts).distinct().take(8)
+        if (merged == hosts.toList() && port == this.port) return
+        p.edit().putString("hosts", JSONArray(merged).toString()).putInt("port", port.takeIf { it in 1024..65535 } ?: this.port)
+            .putString("last", first.firstOrNull() ?: p.getString("last", null)).apply()
+    }
     /** Eşleştirmeyi siler; uygulama seçimi ve gizlilik ayarı kalır. */
     fun clear() = p.edit().remove("key").remove("pc").remove("hosts").remove("port").remove("last").apply()
 
@@ -45,6 +54,9 @@ class Store(ctx: Context) {
     var otpCopy: Boolean // SMS doğrulama kodlarını bilgisayarın panosuna kopyala (varsayılan kapalı)
         get() = p.getBoolean("otpCopy", false)
         set(v) = p.edit().putBoolean("otpCopy", v).apply()
+    var photos: Boolean // fotoğraflar bilgisayarda görülebilsin (varsayılan kapalı)
+        get() = p.getBoolean("photos", false)
+        set(v) = p.edit().putBoolean("photos", v).apply()
     var pcAlert: Boolean // bilgisayara uzun süre ulaşılamayınca telefonda haber ver
         get() = p.getBoolean("pcAlert", true)
         set(v) = p.edit().putBoolean("pcAlert", v).apply()

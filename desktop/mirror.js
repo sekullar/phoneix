@@ -218,8 +218,19 @@ async function enableEasy() {
   return { ok: false, error: /SecurityException|not a changeable|Neither user/i.test(r.err) ? 'Telefon izin vermedi: Geliştirici seçenekleri → "USB hata ayıklama (Güvenlik ayarları)" açık olmalı.' : (r.err || 'İzin verilemedi').trim().slice(0, 140) };
 }
 
+// APK'yı telefona kurar (üzerine yazar, veri kalır). Cihaz yoksa ensureDevice kablosuz hata ayıklamayı açıp bağlanmayı dener.
+async function installApk(file) {
+  if (!find() && adbPath(null) === 'adb') return { ok: false, error: 'adb bulunamadı (Android platform-tools ya da scrcpy gerekli)' };
+  const list = await ensureDevice();
+  if (!list.length) return { ok: false, error: 'Telefona adb ile bağlanılamadı: kablosuz hata ayıklama açık ve eşleşmiş olmalı' };
+  const r = await run(adbPath(find()), ['-s', list[0].serial, 'install', '-r', file], 180000);
+  if (r.ok && /Success/i.test(r.out)) return { ok: true };
+  const why = (r.out + ' ' + r.err).match(/INSTALL_[A-Z_]+|Failure \[[^\]]+\]/);
+  return { ok: false, error: /UPDATE_INCOMPATIBLE/.test(why ? why[0] : '') ? 'Telefondaki uygulama başka anahtarla imzalı: önce kaldırıp APK’yı elle kur' : (why ? why[0] : (r.err || 'Kurulamadı').trim()).slice(0, 140) };
+}
+
 async function status() {
   const sc = find(), list = sc ? await devices() : [];
   return { installed: !!sc, running: !!child, reconnecting, easy: !!ctx.caps().secure, devices: list.map((d) => ({ model: d.model, wifi: d.wifi })), error: lastError };
 }
-module.exports = { init, start, stop, enableEasy, isRunning: () => !!child, status, find, devices, pair, connect, _hint: hint };
+module.exports = { init, start, stop, enableEasy, installApk, isRunning: () => !!child, status, find, devices, pair, connect, _hint: hint };

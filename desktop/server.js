@@ -44,7 +44,7 @@ function handle(req, res) {
     if (!r || !fresh(r.nonce, r.msg.t)) return miss();
     if (fromPending) { ctx.setKey(pending.toString('base64')); pending = null; } // ilk geçerli mesaj: eşleştirme tamam
     lastSeen = Date.now(); lastIp = String(req.socket.remoteAddress || '').replace(/^::ffff:/, '');
-    let out = { ok: true, name: os.hostname() };
+    let out = { ok: true, name: os.hostname(), h: ips(), p: port }; // güncel adresler: telefon bilgisayarın IP'si değişse de yenisini öğrenir
     try {
       const extra = await ctx.onMessage(r.msg, fromPending, () => gone);
       if (extra === null) return res.end(); // istemci uzun beklemeden vazgeçti

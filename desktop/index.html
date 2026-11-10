@@ -92,6 +92,13 @@
   .frow { display: flex; gap: 6px; margin: 6px 0; } .frow input { flex: 1; }
   .bar { height: 5px; border-radius: 3px; background: rgba(47,140,255,.15); margin-top: 5px; overflow: hidden; }
   .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--a1), var(--a2)); width: 0; transition: width .25s; }
+  .pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
+  .pgrid button { padding: 0; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: rgba(47,140,255,.1); }
+  .pgrid img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #pview { position: fixed; inset: 0; z-index: 20; background: rgba(6,20,36,.88); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; }
+  #pview img { max-width: 100%; max-height: calc(100% - 90px); border-radius: 12px; object-fit: contain; }
+  #pview img.loading { filter: blur(6px); }
+  #pview .cap { color: #dbe9f7; font-size: 12.5px; }
   [hidden], .taboff { display: none !important; }
   /* sekmeler */
   .nav { position: sticky; top: 8px; z-index: 3; display: flex; gap: 4px; padding: 4px; border-radius: 16px; background: var(--glass); border: 1px solid rgba(255,255,255,.9); box-shadow: var(--shadow); backdrop-filter: blur(18px) saturate(1.4); animation: rise .6s both; }
@@ -129,6 +136,7 @@
     <button class="nb on" data-t="home">Genel</button>
     <button class="nb" data-t="modes" data-paired>Modlar</button>
     <button class="nb" data-t="files" data-paired>Dosyalar</button>
+    <button class="nb" data-t="photos" data-paired>Fotoğraflar</button>
     <button class="nb" data-t="screen">Ekran</button>
     <button class="nb" data-t="settings">Ayarlar</button>
   </nav>
@@ -247,6 +255,24 @@
     <div class="dim ell" id="saveDir" style="margin-top:8px"></div>
   </section>
 
+  <section class="card" id="photosCard" data-tab="photos" hidden>
+    <h2>Telefondaki fotoğraflar</h2>
+    <div class="dim" id="pmsg">Telefonda Phoneix → Ayarlar → "Fotoğrafları bilgisayarda göster" açık olmalı.</div>
+    <div class="pgrid" id="pgrid" style="margin-top:10px"></div>
+    <div class="btns"><button id="pmore" hidden>Daha fazla</button><button id="preload">Yenile</button></div>
+  </section>
+  <div id="pview" hidden>
+    <img id="pimg" alt="">
+    <div class="cap" id="pcap"></div>
+    <div class="btns" style="margin:0"><button id="pprev">←</button><button class="primary" id="psave">Bilgisayara kaydet</button><button id="pnext">→</button><button id="pclose">Kapat</button></div>
+  </div>
+
+  <section class="card" id="apkCard" data-tab="home" hidden>
+    <h2>Telefon uygulaması</h2>
+    <div id="apkTxt"></div>
+    <div class="btns"><button class="primary" id="apkBtn">Telefonu güncelle</button></div>
+  </section>
+
   <section class="card" id="repCard" data-tab="home" hidden>
     <h2>Yanıtlanabilir mesajlar</h2>
     <div id="reps"></div>
@@ -260,6 +286,7 @@
 
   <section class="card" data-tab="settings">
     <h2>Genel</h2>
+    <label class="sw"><div><div>Telefon uygulamasını otomatik güncelle</div><div class="dim">Bu uygulamayla gelen yeni sürüm, kablosuz hata ayıklama üzerinden telefona kurulur.</div></div><input type="checkbox" id="apkauto"></label>
     <label class="sw"><div><div>Windows açılınca başlat</div><div class="dim">Tepsiye küçülür, pencere açılmaz.</div></div><input type="checkbox" id="auto"></label>
     <label class="sw" style="margin-top:14px"><div><div>Panoyu telefonla eşitle</div><div class="dim">Burada kopyaladığın telefonda da yapışır. Telefondan göndermek için Hızlı Ayarlar'daki "Panoyu gönder" karosu.</div></div><input type="checkbox" id="clip"></label>
   </section>
@@ -294,11 +321,12 @@
   };
 
   // sekmeler: her bölüm data-tab ile bir sekmeye bağlı; telefona özel sekmeler eşleşmeden görünmez
-  let tab = 'home';
+  let tab = 'home', photoItems = [], photosBusy = false, photosAt = 0, pcur = -1;
   function showTab(t) {
     tab = t;
     document.querySelectorAll('.nb').forEach((b) => b.classList.toggle('on', b.dataset.t === t));
     document.querySelectorAll('main > section[data-tab]').forEach((s) => s.classList.toggle('taboff', s.dataset.tab !== t));
+    if (t === 'photos' && st && st.paired && !photosBusy && (!photoItems.length || Date.now() - photosAt > 60000)) loadPhotos(true);
   }
   $('nav').onclick = (e) => { const b = e.target.closest('.nb'); if (b) showTab(b.dataset.t); };
   showTab('home');
@@ -306,7 +334,7 @@
   function render() {
     if (!st) return;
     document.querySelectorAll('.nb[data-paired]').forEach((b) => { b.hidden = !st.paired; });
-    if (!st.paired && (tab === 'modes' || tab === 'files')) showTab('home');
+    if (!st.paired && (tab === 'modes' || tab === 'files' || tab === 'photos')) showTab('home');
     const pairing = showQr && st.pairing;
     $('unpaired').hidden = st.paired || pairing;
     $('pairing').hidden = !pairing;
@@ -338,6 +366,12 @@
     $('mstart').hidden = !!mr.running; $('mstart').disabled = !mr.installed; $('mstop').hidden = !mr.running;
     $('maudio').checked = st.mirrorAudio !== false; $('moff').checked = !!st.mirrorOff;
     $('filesCard').hidden = !st.paired;
+    const ak = st.apk || {}; $('apkauto').checked = ak.auto !== false;
+    $('apkCard').hidden = !st.paired || !(ak.outdated || ak.state === 'installing' || ak.state === 'error');
+    $('apkTxt').textContent = ak.state === 'installing' ? 'Telefona kuruluyor… (telefon ekranında onay istenirse onayla)'
+      : ak.state === 'error' ? 'Güncellenemedi: ' + ak.error
+      : 'Telefonda ' + (ak.phone || 'eski bir sürüm') + ' var, yeni sürüm ' + ak.bundled + '. Telefonda kablosuz hata ayıklama açık olmalı.';
+    $('apkBtn').disabled = ak.state === 'installing'; $('apkBtn').hidden = !ak.outdated;
     $('saveDir').textContent = 'Gelenler: ' + (st.saveDir || '');
     const xs = $('xfers'); xs.textContent = '';
     (st.transfers || []).forEach((x) => {
@@ -477,6 +511,41 @@
     const paths = [...e.dataTransfer.files].map((f) => { try { return phoneix.pathOf(f); } catch { return ''; } }).filter(Boolean);
     if (paths.length && st && st.paired) sent(await phoneix.sendFiles(paths));
   });
+  // ---- telefon fotoğrafları ----
+  async function loadPhotos(reset) {
+    if (photosBusy) return; photosBusy = true;
+    $('pmsg').textContent = 'Telefondan isteniyor…'; $('pmsg').hidden = false; $('pmore').disabled = true; $('preload').disabled = true;
+    const r = await phoneix.photosList(reset ? 0 : photoItems.length);
+    photosBusy = false; $('pmore').disabled = false; $('preload').disabled = false;
+    if (r.error) { $('pmsg').textContent = r.error; return; }
+    if (reset) { photoItems = []; $('pgrid').textContent = ''; }
+    photosAt = Date.now();
+    for (const it of r.items) {
+      const i = photoItems.push(it) - 1, b = document.createElement('button'), im = document.createElement('img');
+      im.src = it.thumb; im.alt = it.name; b.title = it.name; b.appendChild(im); b.onclick = () => openPhoto(i);
+      $('pgrid').appendChild(b);
+    }
+    $('pmsg').hidden = photoItems.length > 0; if (!photoItems.length) $('pmsg').textContent = 'Telefonda fotoğraf bulunamadı.';
+    $('pmore').hidden = !r.more;
+  }
+  async function openPhoto(i) {
+    const it = photoItems[i]; if (!it) return; pcur = i;
+    $('pview').hidden = false; $('pimg').src = it.thumb; $('pimg').className = 'loading';
+    $('pcap').textContent = it.name + (it.t ? ' · ' + new Date(it.t * 1000).toLocaleString('tr-TR') : '');
+    const r = await phoneix.photosFull(it.id);
+    if (pcur !== i) return; // bu arada başka fotoğrafa geçildi
+    if (r.error) { toast(r.error); return; }
+    $('pimg').src = r.data; $('pimg').className = '';
+  }
+  const closePhoto = () => { $('pview').hidden = true; pcur = -1; };
+  $('pclose').onclick = closePhoto;
+  $('pview').onclick = (e) => { if (e.target === $('pview')) closePhoto(); };
+  $('pprev').onclick = () => { if (pcur > 0) openPhoto(pcur - 1); };
+  $('pnext').onclick = () => { if (pcur >= 0 && pcur < photoItems.length - 1) openPhoto(pcur + 1); };
+  $('psave').onclick = async () => { const it = photoItems[pcur]; if (!it) return; const r = await phoneix.photosSave(it.id); toast(r.ok ? 'Telefondan isteniyor, şuraya inecek: ' + r.dir : 'Kaydedilemedi'); };
+  $('pmore').onclick = () => loadPhotos(false);
+  $('preload').onclick = () => loadPhotos(true);
+  window.addEventListener('keydown', (e) => { if ($('pview').hidden) return; if (e.key === 'Escape') closePhoto(); else if (e.key === 'ArrowLeft') $('pprev').click(); else if (e.key === 'ArrowRight') $('pnext').click(); });
   $('ring').onclick = () => { phoneix.ring(!(st && st.ringing)); };
   $('clip').onchange = (e) => phoneix.clipSync(e.target.checked);
   $('callbar').onchange = (e) => phoneix.callOpts({ onBar: e.target.checked });
@@ -493,6 +562,8 @@
   $('mstop').onclick = () => phoneix.mirrorStop();
   $('maudio').onchange = (e) => phoneix.mirrorOpts({ audio: e.target.checked });
   $('moff').onchange = (e) => phoneix.mirrorOpts({ screenOff: e.target.checked });
+  $('apkBtn').onclick = async () => { const r = await phoneix.apkInstall(); toast(r.ok ? 'Telefon güncellendi' : r.error); };
+  $('apkauto').onchange = (e) => phoneix.apkAuto(e.target.checked);
   $('auto').onchange = (e) => phoneix.autostart(e.target.checked);
   phoneix.onState((s) => { st = s; render(); });
   phoneix.onPaired(() => { showQr = false; toast('Telefon eşleşti 🎉'); });
