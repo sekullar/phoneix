@@ -75,13 +75,15 @@ object Photos {
                     try {
                         val th = ctx.contentResolver.loadThumbnail(ContentUris.withAppendedId(uriBase, id), Size(240, 240), null)
                         o.put("thumb", jpeg(th, 70)); th.recycle()
-                    } catch (e: Exception) { /* küçük resim yok: bilgisayar boş kutu gösterir */ }
+                    } catch (e: Exception) { android.util.Log.w("PhoneixPhotos", "küçük resim yok id=$id: ${e.javaClass.simpleName} ${e.message}") }
                     items.put(o)
                 } while (c.moveToNext())
             }
         }
         reply.put("items", items).put("more", more)
-        Link.send(key, store.hosts, store.port, reply, 20000)
+        android.util.Log.i("PhoneixPhotos", "liste offset=$offset items=${items.length()} bytes=${reply.toString().length}")
+        val res = Link.send(key, store.hosts, store.port, reply, 20000)
+        android.util.Log.i("PhoneixPhotos", "liste gönderildi ok=${res.ok} err=${res.error}")
     }
 
     /** Görüntüleme için en uzun kenarı 1600 px'e indirilmiş JPEG (EXIF yönü uygulanır); orijinal için "Bilgisayara kaydet" kullanılır. */

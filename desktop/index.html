@@ -365,7 +365,7 @@
     $('msub').textContent = mr.reconnecting ? 'Bağlantı koptu, yeniden bağlanılıyor…' : $('msub').textContent;
     $('mstart').hidden = !!mr.running; $('mstart').disabled = !mr.installed; $('mstop').hidden = !mr.running;
     $('maudio').checked = st.mirrorAudio !== false; $('moff').checked = !!st.mirrorOff;
-    $('filesCard').hidden = !st.paired;
+    $('filesCard').hidden = !st.paired; $('photosCard').hidden = !st.paired;
     const ak = st.apk || {}; $('apkauto').checked = ak.auto !== false;
     $('apkCard').hidden = !st.paired || !(ak.outdated || ak.state === 'installing' || ak.state === 'error');
     $('apkTxt').textContent = ak.state === 'installing' ? 'Telefona kuruluyor… (telefon ekranında onay istenirse onayla)'
