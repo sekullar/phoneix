@@ -19,7 +19,8 @@ function adbPath(sc) {
   return c.find(exists) || 'adb';
 }
 const run = (file, args, ms = 6000) => new Promise((res) => {
-  execFile(file, args, { timeout: ms, windowsHide: true }, (err, stdout, stderr) => res({ ok: !err, out: String(stdout || ''), err: String(stderr || (err && err.message) || '') }));
+  // cwd: adb başlattığı arka plan sunucusu çalışma klasörünü kilitler; uygulama klasörü olursa Hub güncellemesi "EBUSY" ile düşer
+  execFile(file, args, { timeout: ms, windowsHide: true, cwd: os.tmpdir() }, (err, stdout, stderr) => res({ ok: !err, out: String(stdout || ''), err: String(stderr || (err && err.message) || '') }));
 });
 
 async function devices(force) {
