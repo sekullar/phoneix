@@ -319,6 +319,11 @@ class MainActivity : Activity() {
         }
     }
 
+    override fun onRequestPermissionsResult(code: Int, permissions: Array<out String>, results: IntArray) {
+        super.onRequestPermissionsResult(code, permissions, results)
+        if (code == 10 && !Photos.granted(this)) android.widget.Toast.makeText(this, "Fotoğraf izni verilmedi: bilgisayar fotoğrafları göremez. Anahtarı kapatıp açarak yeniden dene.", android.widget.Toast.LENGTH_LONG).show()
+    }
+
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(req: Int, res: Int, data: Intent?) {
         super.onActivityResult(req, res, data)

@@ -294,9 +294,10 @@ ipcMain.on('apk:auto', (_e, on) => { store.apkAuto = !!on; save(); push(); });
 const photoWait = new Map(); // req -> {res, timer}
 function photoAsk(cmd, ms = 25000) {
   if (!store.key) return Promise.resolve({ error: 'Telefon eşleşmemiş' });
+  if (phone.t && apkupdate.cmp(apkupdate.VER.test(phone.ver || '') ? phone.ver : '0.0.0', '0.4.0') < 0) return Promise.resolve({ error: 'Telefondaki Phoneix uygulaması eski, fotoğrafları desteklemiyor. Genel sekmesinden telefonu güncelle.' });
   const req = crypto.randomBytes(6).toString('hex');
   return new Promise((res) => {
-    const timer = setTimeout(() => { photoWait.delete(req); res({ error: 'Telefon yanıt vermedi (kapalı ya da başka ağda olabilir)' }); }, ms);
+    const timer = setTimeout(() => { photoWait.delete(req); log('foto isteği yanıtsız', cmd.type); res({ error: "Telefon yanıt vermedi. Telefonda Phoneix'i açıp Ayarlar → Fotoğraflar → 'Fotoğrafları bilgisayarda göster' anahtarının açık olduğunu kontrol et; telefon kapalı ya da başka ağda da olabilir." }); }, ms);
     photoWait.set(req, { res, timer });
     remote.push({ ...cmd, req });
   });
@@ -305,9 +306,10 @@ const B64 = /^[A-Za-z0-9+/]+={0,2}$/;
 function photoReply(m) {
   const w = typeof m.req === 'string' ? photoWait.get(m.req) : null; if (!w) return;
   photoWait.delete(m.req); clearTimeout(w.timer);
+  log('foto yanıtı', m.type, m.error ? 'hata=' + String(m.error).slice(0, 20) + ' ' + String(m.detail || '').slice(0, 120) : 'tamam');
   if (typeof m.error === 'string') {
-    const msg = { off: "Telefonda 'Fotoğrafları bilgisayarda göster' kapalı. Phoneix ayarlarından aç.", perm: 'Telefonda fotoğraf izni verilmemiş. Phoneix ayarlarında anahtarı kapatıp aç.' }[m.error];
-    return w.res({ error: msg || 'Telefon fotoğrafları veremedi' });
+    const msg = { off: "Fotoğraflar telefonda kapalı. Telefonda Phoneix'i aç → Ayarlar → Fotoğraflar → 'Fotoğrafları bilgisayarda göster' anahtarını aç, sonra Yenile'ye bas.", perm: 'Telefonda fotoğraf izni verilmemiş. Phoneix ayarlarında anahtarı kapatıp aç.' }[m.error];
+    return w.res({ error: msg || 'Telefon fotoğrafları veremedi' + (typeof m.detail === 'string' && m.detail ? ' (' + m.detail.slice(0, 120) + ')' : '') });
   }
   if (m.type === 'photolist') {
     const items = (Array.isArray(m.items) ? m.items : []).slice(0, 60).filter((x) => x && /^\d{1,20}$/.test(String(x.id))).map((x) => ({

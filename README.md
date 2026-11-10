@@ -43,7 +43,7 @@ It also works with [Dynamic Bar](https://github.com/sekullar/dynamic-bar-for-win
 
 ## Install (no building needed)
 
-1. **Phone:** download [`releases/Phoneix-0.4.0.apk`](releases/Phoneix-0.4.0.apk) on your phone and open it (Android will ask you to allow installing from your browser).
+1. **Phone:** download [`releases/Phoneix-0.4.1.apk`](releases/Phoneix-0.4.1.apk) on your phone and open it (Android will ask you to allow installing from your browser).
 2. **PC:** install [Node.js](https://nodejs.org), then run:
 
    ```powershell

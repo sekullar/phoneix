@@ -23,10 +23,16 @@ object Photos {
     private val io = Executors.newSingleThreadExecutor()
     private val uriBase = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
 
-    fun perms(): Array<String> =
-        if (Build.VERSION.SDK_INT >= 33) arrayOf(Manifest.permission.READ_MEDIA_IMAGES) else arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+    /** Android 14+ "Fotoğrafları seç" (kısmi erişim) seçeneği için READ_MEDIA_VISUAL_USER_SELECTED de istenir; yoksa o seçim "izin yok" sayılırdı. */
+    fun perms(): Array<String> = when {
+        Build.VERSION.SDK_INT >= 34 -> arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
+        Build.VERSION.SDK_INT >= 33 -> arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
+        else -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+    }
 
-    fun granted(ctx: Context) = perms().all { ctx.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
+    private fun has(ctx: Context, p: String) = ctx.checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED
+    fun granted(ctx: Context) = perms().first().let { has(ctx, it) } ||
+        (Build.VERSION.SDK_INT >= 34 && has(ctx, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED))
 
     /** Poll döngüsünden çağrılır; iş kendi iş parçacığında yürür, poll'u bekletmez. */
     fun handle(ctx0: Context, key: ByteArray, store: Store, cmd: JSONObject) {
@@ -34,7 +40,9 @@ object Photos {
         val type = cmd.optString("type"); val req = cmd.optString("req")
         io.execute {
             val reply = JSONObject().put("type", if (type == "photosave") "photosave" else type).put("req", req)
-            fun fail(code: String) { if (type != "photosave") Link.send(key, store.hosts, store.port, reply.put("error", code)) }
+            fun fail(code: String, detail: String = "") {
+                if (type != "photosave") Link.send(key, store.hosts, store.port, reply.put("error", code).put("detail", detail.take(160)))
+            }
             if (!store.photos) return@execute fail("off")
             if (!granted(ctx)) return@execute fail("perm")
             try {
@@ -43,7 +51,7 @@ object Photos {
                     "photofull" -> sendFull(ctx, key, store, reply, cmd.optString("id"))
                     "photosave" -> idUri(cmd.optString("id"))?.let { Transfers.upload(ctx, listOf(it)) { _, _ -> } }
                 }
-            } catch (e: Exception) { fail("fail") }
+            } catch (e: Throwable) { fail("fail", e.javaClass.simpleName + ": " + (e.message ?: "")) }
         }
     }
 
