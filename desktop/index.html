@@ -130,7 +130,9 @@
   .nb { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 10px 16px; border: 0; border-radius: 8px; background: transparent; color: var(--color-muted-foreground); font: 600 15px/1 var(--font-body); cursor: pointer; white-space: nowrap; touch-action: manipulation; position: relative; transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease); }
   .nb:hover { background: var(--color-muted); color: var(--color-foreground); }
   .nb.on { color: var(--color-link); background: var(--glass-strong); box-shadow: inset 0 -3px 0 var(--color-primary); }
-  .side-foot { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--color-muted-foreground); white-space: nowrap; }
+  .side-foot { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--color-muted-foreground); white-space: nowrap; min-width: 0; max-width: 100%; }
+  .side-foot .dot { flex: none; } #stxt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .side { min-width: 0; }
   .content { overflow-y: auto; padding: var(--space-xl) var(--space-lg) var(--space-2xl); scrollbar-gutter: stable; }
   .page { width: 100%; max-width: 880px; margin-inline: auto; display: flex; flex-direction: column; gap: var(--space-lg); }
   main:focus { outline: none; }
@@ -142,7 +144,8 @@
     .nav { flex-direction: column; overflow: visible; }
     .nb { width: 100%; }
     .nb.on { box-shadow: inset 3px 0 0 var(--color-primary); }
-    .side-foot { margin: auto 0 0; padding: 12px; border-radius: 12px; background: var(--glass-strong); }
+    .side { overflow-y: auto; overflow-x: hidden; }
+    .side-foot { margin: auto 0 0; padding: 12px; border-radius: 12px; background: var(--glass-strong); flex: none; }
     .content { padding: var(--space-xl) var(--space-2xl) var(--space-3xl); }
   }
 
@@ -496,7 +499,7 @@
     $('pname').textContent = st.name || 'Telefon';
     const recent = st.lastMsg && Date.now() - st.lastMsg < 120000;
     $('pdot').className = 'dot' + (recent ? ' ok' : '');
-    $('sdot').className = 'dot' + (st.paired ? (recent ? ' ok' : ' warn') : ''); $('stxt').textContent = st.paired ? (st.name || 'Telefon') + (recent ? ' · bağlı' : ' · sessiz') : 'Eşleşmedi';
+    $('sdot').className = 'dot' + (st.paired ? (recent ? ' ok' : ' warn') : ''); $('stxt').textContent = st.paired ? (st.name || 'Telefon') + (recent ? ' · bağlı' : ' · sessiz') : 'Eşleşmedi'; $('stxt').title = $('stxt').textContent;
     $('quickCard').hidden = !st.paired;
     $('pseen').textContent = 'Son mesaj: ' + ago(st.lastMsg);
     $('ddot').className = 'dot ' + (st.dynbar ? 'ok' : 'warn');
