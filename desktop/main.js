@@ -539,7 +539,7 @@ function showWindow() {
 }
 function createWindow() {
   win = new BrowserWindow({
-    width: 520, height: 760, minWidth: 420, minHeight: 560, show: false, backgroundColor: '#e8f4ff', title: 'Phoneix',
+    width: 1180, height: 760, minWidth: 760, minHeight: 560, show: false, backgroundColor: require('electron').nativeTheme.shouldUseDarkColors ? '#0b1220' : '#f8fafc', title: 'Phoneix',
     icon: path.join(__dirname, 'assets', 'icon.png'), autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true }
   });
